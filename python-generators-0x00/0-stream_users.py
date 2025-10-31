@@ -10,4 +10,16 @@ from . import seed
 def stream_users():
     # connect to the database
     connection = seed.connect_prodev()
+    cursor = connection.cursor(Dictionary=True)
+
+    # fetch data from user_data table
+    cursor.execute("SELECT * FROM user_data")
+
+    # yield one row at a time
+    for row in cursor:
+        yield row
     
+    # close connection
+    cursor.close()
+    connection.close()
+
