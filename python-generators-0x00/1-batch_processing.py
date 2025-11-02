@@ -3,7 +3,7 @@ from mysql.connection import Error
 from .. import seed
 
 # Write a function  that fetches rows in batches
-def stream_users_in_batches(batch_size):
+def streamusersinbatches(batch_size):
     # convert batch size to int
     try:
         batch_size = int(batch_size)
