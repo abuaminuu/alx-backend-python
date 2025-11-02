@@ -1,5 +1,5 @@
 import sys
-from mysql.connection import Error
+from mysql.connector import Error
 from .. import seed
 
 
@@ -54,36 +54,3 @@ def batch_processing():
         # terminate connection
         cursor.close()
         connection.close()
-
-
-# Implement a generator function  that implements the
-# paginate_users(page_size, offset) that will only fetch
-# the next page when needed at an offset of 0.
-def paginate_users(page_size, offset):
-
-    # connect to databse
-    connection = connect_to_prodev()
-    cursor = connection.cursor(dictionary=True)
-
-    # execute one query
-    query = "SELECT * FROM user_data ORDER BY user_id LIMIT %s OFFSET %s"
-    cursor.execute(query, (page_size, offset))
-
-    # returns up to page_size rows
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    # to avoid injection and leaks
-    return rows
-
-
-def lazy_paginate(page_size):
-    offset = 0
-    while True:
-        page = paginate_users(page_size, offset)
-        if not page:
-            break
-        yield page
-        # update offset to next page
-        offset = offset + page_size
