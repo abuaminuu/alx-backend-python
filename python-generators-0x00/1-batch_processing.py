@@ -17,7 +17,7 @@ def stream_users_in_batches(batch_size):
     cursor = connection.cursor(dictionary=True)
     
     try:
-        cursor.execute("SELECT * FROM user_table")
+        cursor.execute("SELECT * FROM user_data")
         while True:
             # fetch data from users table in batches
             rows = cursor.fetchmany(batch_size)
@@ -43,11 +43,11 @@ def batch_processing():
     batch_size = 15
     try:
         # filter data from users table with age > 25
-        cursor.execute("SELECT * FROM user_table WHERE age > 25")
+        cursor.execute("SELECT * FROM user_data WHERE age > 25")
         rows = cursor.fetchmany(batch_size)
         if not rows:
             break
-        yield rows
+        return rows
     except Error as e:
         print(f"error fetching data{e}")
     finally:
