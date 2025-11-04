@@ -8,7 +8,12 @@ from datetime import datetime, print
 def log_queries():
   def decorator(func):
     def wrapper(*args, **kwargs):
+      query = kwargs.get("query") if "query" in kwargs else args[0]
+      print(f"Running SQL query: {query}")
+      start = time.time() 
       result = func(*args, **kwargs)
+      end = time.time()
+      print(f"Query finished in {(end - start) * 1000:.2f} ms")
       return result
     return wrapper
   return decorator
