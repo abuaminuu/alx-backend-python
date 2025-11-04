@@ -1,4 +1,6 @@
-# ALX Backend Python – Generators and Data Streaming
+# ALX Backend Python 
+
+# Generators and Data Streaming
 
 This project explores **Python generators**, **database streaming**, and **memory-efficient data processing** using MySQL.
 It focuses on building scalable backend logic capable of handling large datasets without exhausting system resources.
@@ -25,4 +27,27 @@ You’ll learn to design **backend systems that scale**, reduce **database load*
 
 ---
 
-Would you like me to add a **short setup section** (e.g., MySQL config + how to run each script)?
+Sure! Here’s a concise **200-word README** for today’s decorator-based database project 👇
+
+---
+
+# Python Database Decorators
+
+This project builds on advanced Python concepts to create reusable decorators that enhance database operations. The tasks focus on improving performance, reliability, and maintainability in database-driven applications by encapsulating logic such as connection handling, transaction control, retries, and caching.
+
+Through the exercises, several key decorators were implemented:
+
+1. **`@log_queries`** — Logs SQL queries before execution for easier debugging and monitoring.
+2. **`@with_db_connection`** — Automatically opens and closes database connections, ensuring proper resource management.
+3. **`@transactional`** — Wraps operations within a transaction; commits on success or rolls back on failure.
+4. **`@retry_on_failure`** — Retries failed database operations caused by transient errors, improving reliability.
+5. **`@cache_query`** — Caches query results to reduce redundant calls and improve performance.
+
+Each decorator demonstrates how Python’s higher-order functions and closures can simplify complex database logic, making the code cleaner, reusable, and easier to maintain. Together, these patterns form a foundation for scalable data-driven systems, helping developers focus on business logic while handling operational concerns automatically.
+
+This work is part of the **ALX Backend Python** learning series, emphasizing real-world problem solving with Pythonic design.
+
+---
+
+
+
