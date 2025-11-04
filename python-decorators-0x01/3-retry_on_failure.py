@@ -2,7 +2,7 @@ import time
 import sqlite3
 from functools import functools.wraps
 
-# retry decorator
+# retry decorator ie fault tolerant
 def retry_on_failure(retries=3, delay=2):
     """ retry if function raises an exception """
     def decorator(func):
