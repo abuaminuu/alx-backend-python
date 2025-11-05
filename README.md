@@ -45,6 +45,22 @@ Through the exercises, several key decorators were implemented:
 
 Each decorator demonstrates how Python’s higher-order functions and closures can simplify complex database logic, making the code cleaner, reusable, and easier to maintain. Together, these patterns form a foundation for scalable data-driven systems, helping developers focus on business logic while handling operational concerns automatically.
 
+
+
+### Context Managers and Async Database Operations
+
+This project, part of the **ALX Backend Python track**, explores advanced Python techniques for efficient database interaction using **context managers** and **asynchronous programming**.
+
+The project is structured into three main components:
+
+1. **DatabaseConnection Context Manager** — A custom class that automates the opening and closing of database connections, ensuring safe and clean resource management.
+2. **ExecuteQuery Context Manager** — A reusable class that executes parameterized queries while handling transactions and errors seamlessly.
+3. **Asynchronous Database Operations** — Implementation of `aiosqlite` with `asyncio.gather()` to perform multiple queries concurrently without blocking the event loop.
+
+The primary goal was to improve backend performance by managing connections effectively and leveraging concurrency for faster data retrieval.
+
+Through this project, I deepened my understanding of **context managers**, **resource cleanup**, and **asynchronous execution patterns**, which are critical for scalable, production-level backend systems.
+
 This work is part of the **ALX Backend Python** learning series, emphasizing real-world problem solving with Pythonic design.
 
 ---
