@@ -141,3 +141,195 @@ This module is part of a larger project focused on building reliable, well-teste
 
 If you want, I can **also draft a short LinkedIn-friendly “skills & achievements” post** based on this testing project, highlighting challenges and breakthroughs. Do you want me to do that next?
 
+# ALL
+Perfect — here’s a **polished, submission-ready `README.md`** for your `0x03-Unittests_and_integration_tests` project.
+It covers **all 10 tasks**, from unit testing through integration testing, in a clean and professional style suitable for your ALX GitHub repo 👇
+
+---
+
+# 🧪 0x03. Unittests and Integration Tests
+
+This project focuses on **unit testing and integration testing** in Python — ensuring code correctness, reliability, and maintainability.
+It’s part of the **ALX Backend Python** track and applies testing concepts to real-world scenarios involving API clients and utility functions.
+
+---
+
+## 📚 Learning Objectives
+
+By completing this project, you will be able to:
+
+* Write **unit tests** using `unittest` and `parameterized`
+* Use **mocking** to simulate HTTP requests and dependencies
+* Test for **exceptions** and edge cases
+* Apply the **@patch** decorator and **context managers** effectively
+* Understand **memoization**, **fixtures**, and **integration testing**
+* Separate unit tests (isolated) from integration tests (combined components)
+
+---
+
+## 🧩 Project Structure
+
+```
+0x03-Unittests_and_integration_tests/
+│
+├── utils.py
+├── client.py
+├── fixtures.py
+│
+├── test_utils.py
+└── test_client.py
+```
+
+---
+
+## 🧠 Key Components
+
+### 1. **`utils.py`**
+
+Contains helper functions:
+
+* `access_nested_map` – safely access values in nested dicts
+* `get_json` – fetch and return JSON data from a given URL
+* `memoize` – caching decorator to avoid redundant computations
+
+### 2. **`client.py`**
+
+Implements:
+
+* `GithubOrgClient` – a client for interacting with the GitHub API
+
+  * Fetches organization data
+  * Lists repositories
+  * Filters by license type
+
+---
+
+## 🧪 Tests Overview
+
+### 🔹 `test_utils.py`
+
+#### Task 0: Parameterize a Unit Test
+
+* Tests `access_nested_map` with various nested paths.
+* Uses `@parameterized.expand` and `assertEqual` for concise validation.
+
+#### Task 1: Parameterize a Unit Test (Exception)
+
+* Verifies that invalid paths raise `KeyError` with the correct message.
+* Uses `assertRaises` and parameterized input cases.
+
+#### Task 2: Mock HTTP Calls
+
+* Tests `get_json` without making real HTTP requests.
+* Mocks `requests.get` and asserts it’s called once with the correct URL.
+
+#### Task 3: Parameterize and Patch
+
+* Tests the `memoize` decorator.
+* Verifies that memoized methods call their source method only once.
+* Uses `patch` to mock `a_method`.
+
+---
+
+### 🔹 `test_client.py`
+
+#### Task 4: Parameterize and Patch as Decorators
+
+* Tests `GithubOrgClient.org` method using `@patch`.
+* Ensures `get_json` is called once with the correct endpoint.
+
+#### Task 5: Mocking a Property
+
+* Tests `_public_repos_url` property.
+* Uses context-managed patching to simulate API payloads.
+
+#### Task 6: More Patching
+
+* Tests `public_repos` method.
+* Mocks both `get_json` and `_public_repos_url`.
+* Verifies repo list and call counts.
+
+#### Task 7: Parameterize
+
+* Tests `has_license` method.
+* Uses `@parameterized.expand` to check different license keys and expected boolean outcomes.
+
+---
+
+### 🔹 Integration Tests
+
+#### Task 8: Integration Test (Fixtures)
+
+* Creates `TestIntegrationGithubOrgClient` class using `@parameterized_class`.
+* Loads fixture data from `fixtures.py`:
+
+  * `org_payload`, `repos_payload`, `expected_repos`, `apache2_repos`
+* Patches `requests.get` globally in `setUpClass` and tears it down after tests.
+
+#### Task 9: Integration Tests (Public Repos)
+
+* Tests the real behavior of `GithubOrgClient.public_repos`.
+* Validates output against `expected_repos` and `apache2_repos`.
+* Ensures filtering by license works as expected.
+
+---
+
+## 🧾 Example Usage
+
+Run all tests:
+
+```bash
+$ python3 -m unittest discover -v
+```
+
+Run specific test file:
+
+```bash
+$ python3 -m unittest test_utils
+$ python3 -m unittest test_client
+```
+
+---
+
+## 🧰 Tools & Libraries
+
+* **unittest** – standard Python testing framework
+* **parameterized** – simplifies running multiple test cases
+* **unittest.mock** – for patching and mocking dependencies
+* **requests** – for HTTP interactions (mocked during tests)
+
+---
+
+## 🧱 Best Practices Followed
+
+* All functions, classes, and modules include **docstrings**
+* All functions are **type-annotated**
+* Each test follows the **AAA (Arrange, Act, Assert)** pattern
+* Mocks are used only where necessary (no external API calls)
+* Integration tests simulate realistic scenarios with controlled data
+
+---
+
+## 🏁 Summary
+
+This project demonstrates a full testing lifecycle:
+
+| Type                 | Focus                         | Example                          |
+| -------------------- | ----------------------------- | -------------------------------- |
+| **Unit Test**        | Isolated component logic      | `utils.access_nested_map`        |
+| **Mocked Test**      | Replace external dependencies | `get_json` & `requests.get`      |
+| **Integration Test** | Combined behavior             | `GithubOrgClient.public_repos()` |
+
+Together, these tests ensure code reliability, performance, and maintainability — essential qualities in any production-grade backend system.
+
+---
+
+### ✍️ Author
+
+**Abubakar Aminu**
+*“Test early, test often, and test smart.”*
+
+---
+
+Would you like me to also generate a matching **braglist (dev journal)** for this entire testing project once you’re ready to push?
+It’ll summarize all 10 tasks in “Problem → Action → Result” format for your portfolio and LinkedIn.
