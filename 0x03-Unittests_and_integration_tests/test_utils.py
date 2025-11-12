@@ -21,13 +21,11 @@ class TestAccessNestedMap(unittest.TestCase):
     and for paths that should raise exceptions.
     """
 
-    @parameterized.expand(
-        [
+    @parameterized.expand([
             ({"a": 1}, ("a",), 1),
             ({"a": {"b": 2}}, ("a",), {"b": 2}),
             ({"a": {"b": 2}}, ("a", "b"), 2),
-        ]
-    )
+        ])
     def test_access_nested_map(
             self,
             nested_map: dict,
@@ -49,12 +47,10 @@ class TestAccessNestedMap(unittest.TestCase):
         """
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
-    @parameterized.expand(
-        [
+    @parameterized.expand([
             ({}, ("a")),
             ({"a": 1}, ("a", "b")),
-        ]
-    )
+        ])
     def test_access_nested_map_exceptions(
         self, nested_map: dict,
         path: str
@@ -89,12 +85,10 @@ class TestGetJson(unittest.TestCase):
     method and returns the expected JSON data.
     """
 
-    @parameterized.expand(
-        [
+    @parameterized.expand([
             ("http://example.com", {"payload": True}),
             ("http://holberton.io", {"payload": False}),
-        ]
-    )
+        ])
     @patch("utils.requests.get")
     def test_get_json(
         self, test_url: str, test_payload: dict, mock_get: Mock
