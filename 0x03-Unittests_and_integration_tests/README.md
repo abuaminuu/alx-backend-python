@@ -88,3 +88,56 @@ Ensure that `access_nested_map()` raises `KeyError` when accessing invalid or mi
 ---
 
 Would you like me to extend this README with a short “Project Reflection / Challenges & Breakthroughs” section (like your brag list format for LinkedIn)? It would summarize what you learned and overcame in this testing challenge.
+Here’s a polished **README for `test_utils.py`** covering Tasks 0–2, including the unit tests for `access_nested_map` and `get_json`:
+
+---
+
+# `test_utils.py`
+
+This module contains unit tests for utility functions in the `utils` package. It ensures correctness, error handling, and proper external behavior simulation using Python’s `unittest` framework, `parameterized` testing, and `unittest.mock`.
+
+## Tested Functions
+
+### 1. `access_nested_map(nested_map: dict, path: tuple) -> any`
+
+* **Purpose:** Safely access values in a nested dictionary following the sequence of keys in `path`.
+* **Tests:**
+
+  * `TestAccessNestedMap.test_access_nested_map`
+
+    * Validates that the function returns the correct value for multiple nested paths using `@parameterized.expand`.
+  * `TestAccessNestedMap.test_access_nested_map_exception`
+
+    * Ensures that a `KeyError` is raised when attempting to access a non-existent key.
+    * Checks that the exception message correctly reflects the missing key.
+
+### 2. `get_json(url: str) -> dict`
+
+* **Purpose:** Perform an HTTP GET request and return the JSON response.
+* **Tests:**
+
+  * `TestGetJson.test_get_json`
+
+    * Mocks `requests.get` to avoid real HTTP calls.
+    * Ensures that `get_json` returns the expected payload for different URLs.
+    * Verifies that the `requests.get` method is called exactly once with the correct URL.
+
+## Key Features
+
+* Uses `parameterized.expand` to test multiple inputs concisely.
+* Uses `unittest.mock.patch` to isolate tests from external dependencies.
+* Full **type annotations** and **docstrings** are provided for all classes and methods.
+* Exception handling and output verification are explicitly tested to ensure robust utility functions.
+
+## Running Tests
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+This module is part of a larger project focused on building reliable, well-tested Python utility functions for backend applications.
+
+---
+
+If you want, I can **also draft a short LinkedIn-friendly “skills & achievements” post** based on this testing project, highlighting challenges and breakthroughs. Do you want me to do that next?
+
