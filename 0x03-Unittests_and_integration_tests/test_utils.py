@@ -21,13 +21,12 @@ class TestAccessNestedMap(unittest.TestCase):
     and for paths that should raise exceptions.
     """
 
-    @parameterized.expand(
-        [
+    @parameterized.expand([
             ({"a": 1}, ("a",), 1),
             ({"a": {"b": 2}}, ("a",), {"b": 2}),
             ({"a": {"b": 2}}, ("a", "b"), 2),
-        ]
-    )
+        ])
+    
     def test_access_nested_map(self, nested_map, path, expected):
         """
         Test that access_nested_map returns correct value for
@@ -44,12 +43,11 @@ class TestAccessNestedMap(unittest.TestCase):
         """
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
-    @parameterized.expand(
-        [
+    @parameterized.expand([
             ({}, ("a")),
             ({"a": 1}, ("a", "b")),
-        ]
-    )
+        ])
+    
     def test_access_nested_map_exceptions(self, nested_map, path):
         """
         Test that KeyError is raised for invalid paths.
@@ -66,11 +64,6 @@ class TestAccessNestedMap(unittest.TestCase):
             access_nested_map(nested_map, path)
         # assert the error message matches the missing key
         self.assertEqual(str(error.exception), repr(path[-1]))
-
-    #   for addition
-    @parameterized.expand([(3, 4, 7), (5, 8, 13), (1, 2, 3)])
-    def test_sum(self, x: int, y: int, expected: int) -> None:
-        self.assertEqual(sum(x, y), expected)
 
 
 class TestGetJson(unittest.TestCase):
@@ -139,6 +132,7 @@ class TestMemoize(unittest.TestCase):
 
         with patch.object(TestClass, "a_method", return_value=42)
         as mocked_method:
+            
             # Call the memoized property twice
             first_call = obj.a_property
             second_call = obj.a_property
@@ -150,6 +144,6 @@ class TestMemoize(unittest.TestCase):
             # Assert that a_method was only called once
             mocked_method.assert_called_once()
 
-
+    
 if __name__ == "__main__":
     unittest.main()
