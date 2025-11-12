@@ -14,36 +14,51 @@ to ensure no real network calls are made during testing.
 
 
 class TestAccessNestedMap(unittest.TestCase):
-    """ 
-    Unit tests for the access_nested_map function. 
+    """
+    Unit tests for the access_nested_map function.
     Test case for the `utils.access_nested_map` function.
     Ensures that nested map access works as expected, both for valid paths
     and for paths that should raise exceptions.
     """
-    @parameterized.expand([
-        ({"a": 1}, ("a",), 1),
-        ({"a": {"b": 2}}, ("a",), {"b": 2}),
-        ({"a": {"b": 2}}, ("a", "b"), 2),
-    ])
-    def test_access_nested_map(self, nested_map: dict, path: str, expected) -> None:
-        """Test that access_nested_map returns correct value for given path.
-        Test that `access_nested_map` returns the expected value for valid paths.
 
+    @parameterized.expand(
+        [
+            ({"a": 1}, ("a",), 1),
+            ({"a": {"b": 2}}, ("a",), {"b": 2}),
+            ({"a": {"b": 2}}, ("a", "b"), 2),
+        ]
+    )
+    def test_access_nested_map(
+            self,
+            nested_map: dict,
+            path: str,
+            expected
+    ) -> None:
+        """
+        Test that access_nested_map returns correct value for
+        given path. Test that `access_nested_map` returns the
+        expected value for valid paths.
         Args:
             nested_map (dict): The dictionary to access.
             path (tuple): The sequence of keys to traverse.
-            expected (any): The expected value returned by the function.
+            expected (any): The expected value returned by the
+            function.
 
         This test verifies that the function correctly retrieves values
         from nested dictionaries without raising exceptions.
         """
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
-    @parameterized.expand([
-        ({}, ("a")),
-        ({"a": 1}, ("a", "b")),
-    ])
-    def test_access_nested_map_exceptions(self, nested_map: dict, path: str) -> None:
+    @parameterized.expand(
+        [
+            ({}, ("a")),
+            ({"a": 1}, ("a", "b")),
+        ]
+    )
+    def test_access_nested_map_exceptions(
+        self, nested_map: dict,
+        path: str
+    ) -> None:
         """
         Test that KeyError is raised for invalid paths.
         Test that `access_nested_map` raises a KeyError for invalid paths.
@@ -61,11 +76,7 @@ class TestAccessNestedMap(unittest.TestCase):
         self.assertEqual(str(error.exception), repr(path[-1]))
 
     #   for addition
-    @parameterized.expand([
-        (3, 4, 7),
-        (5, 8, 13),
-        (1, 2, 3)
-    ])
+    @parameterized.expand([(3, 4, 7), (5, 8, 13), (1, 2, 3)])
     def test_sum(self, x: int, y: int, expected: int) -> None:
         self.assertEqual(sum(x, y), expected)
 
@@ -78,12 +89,16 @@ class TestGetJson(unittest.TestCase):
     method and returns the expected JSON data.
     """
 
-    @parameterized.expand([
-        ("http://example.com", {"payload": True}),
-        ("http://holberton.io", {"payload": False}),
-    ])
+    @parameterized.expand(
+        [
+            ("http://example.com", {"payload": True}),
+            ("http://holberton.io", {"payload": False}),
+        ]
+    )
     @patch("utils.requests.get")
-    def test_get_json(self, test_url: str, test_payload: dict, mock_get: Mock) -> None:
+    def test_get_json(
+        self, test_url: str, test_payload: dict, mock_get: Mock
+    ) -> None:
         """
         Test that get_json returns expected result with mocked requests.get.
         Test that `get_json` returns the expected result when
@@ -91,7 +106,8 @@ class TestGetJson(unittest.TestCase):
 
         Args:
             test_url (str): The URL to be passed into the `get_json` function.
-            test_payload (Dict): The fake JSON payload returned by the mocked response.
+            test_payload (Dict): The fake JSON payload returned by
+            the mocked response.
             mock_get (Mock): The patched version of `requests.get`.
 
         This test verifies that:
@@ -116,6 +132,7 @@ class TestMemoize(unittest.TestCase):
 
     def test_memoize(self):
         """Test that a memoized method caches the result after first call"""
+
         class TestClass:
             """Sample class to test memoization"""
 
@@ -130,7 +147,9 @@ class TestMemoize(unittest.TestCase):
 
         obj = TestClass()
 
-        with patch.object(TestClass, "a_method", return_value=42) as mocked_method:
+        with patch.object(
+            TestClass, "a_method", return_value=42
+        ) as mocked_method:
             # Call the memoized property twice
             first_call = obj.a_property
             second_call = obj.a_property
