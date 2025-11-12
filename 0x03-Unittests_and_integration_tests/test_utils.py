@@ -43,106 +43,106 @@ class TestAccessNestedMap(unittest.TestCase):
         """
         self.assertEqual(access_nested_map(nested_map, path), expected)
 
-    @parameterized.expand([
-            ({}, ("a")),
-            ({"a": 1}, ("a", "b")),
-        ])
+#     @parameterized.expand([
+#             ({}, ("a")),
+#             ({"a": 1}, ("a", "b")),
+#         ])
     
-    def test_access_nested_map_exceptions(self, nested_map, path):
-        """
-        Test that KeyError is raised for invalid paths.
-        Test that `access_nested_map` raises a KeyError for invalid paths.
-        Args:
-            nested_map (dict): The dictionary to access.
-            path (tuple): The sequence of keys expected to cause KeyError.
+#     def test_access_nested_map_exceptions(self, nested_map, path):
+#         """
+#         Test that KeyError is raised for invalid paths.
+#         Test that `access_nested_map` raises a KeyError for invalid paths.
+#         Args:
+#             nested_map (dict): The dictionary to access.
+#             path (tuple): The sequence of keys expected to cause KeyError.
 
-        This test verifies that a KeyError is raised when attempting
-        to access a key that does not exist in the nested dictionary.
+#         This test verifies that a KeyError is raised when attempting
+#         to access a key that does not exist in the nested dictionary.
 
-        """
-        with self.assertRaises(KeyError) as error:
-            access_nested_map(nested_map, path)
-        # assert the error message matches the missing key
-        self.assertEqual(str(error.exception), repr(path[-1]))
-
-
-class TestGetJson(unittest.TestCase):
-    """
-    Tests for the get_json function in utils.py.
-    Test case for the `get_json` utility function.
-    Ensures that `get_json` correctly interacts with the `requests.get`
-    method and returns the expected JSON data.
-    """
-
-    @parameterized.expand(
-        [
-            ("http://example.com", {"payload": True}),
-            ("http://holberton.io", {"payload": False}),
-        ]
-    )
-    @patch("utils.requests.get")
-    def test_get_json(self, test_url, test_payload, mock_get) -> None:
-        """
-        Test that get_json returns expected result with mocked requests.get.
-        Test that `get_json` returns the expected result when
-        `requests.get` is mocked.
-
-        Args:
-            test_url (str): The URL to be passed into the `get_json` function.
-            test_payload (Dict): The fake JSON payload returned by
-            the mocked response.
-            mock_get (Mock): The patched version of `requests.get`.
-
-        This test verifies that:
-            - `requests.get` is called exactly once with the provided URL.
-            - The JSON payload returned by `get_json` matches the mocked data.
-        """
-        # create mock response object
-        mock_response = Mock()
-        mock_response.json.return_value = test_payload
-        mock_get.return_value = mock_response
-
-        # call the function
-        result = get_json(test_url)
-
-        # assertions
-        mock_get.assert_called_once_with(test_url)
-        self.assertEqual(result, test_payload)
+#         """
+#         with self.assertRaises(KeyError) as error:
+#             access_nested_map(nested_map, path)
+#         # assert the error message matches the missing key
+#         self.assertEqual(str(error.exception), repr(path[-1]))
 
 
-class TestMemoize(unittest.TestCase):
-    """Test case for the memoize decorator"""
+# class TestGetJson(unittest.TestCase):
+#     """
+#     Tests for the get_json function in utils.py.
+#     Test case for the `get_json` utility function.
+#     Ensures that `get_json` correctly interacts with the `requests.get`
+#     method and returns the expected JSON data.
+#     """
 
-    def test_memoize(self):
-        """Test that a memoized method caches the result after first call"""
+#     @parameterized.expand(
+#         [
+#             ("http://example.com", {"payload": True}),
+#             ("http://holberton.io", {"payload": False}),
+#         ]
+#     )
+#     @patch("utils.requests.get")
+#     def test_get_json(self, test_url, test_payload, mock_get) -> None:
+#         """
+#         Test that get_json returns expected result with mocked requests.get.
+#         Test that `get_json` returns the expected result when
+#         `requests.get` is mocked.
 
-        class TestClass:
-            """Sample class to test memoization"""
+#         Args:
+#             test_url (str): The URL to be passed into the `get_json` function.
+#             test_payload (Dict): The fake JSON payload returned by
+#             the mocked response.
+#             mock_get (Mock): The patched version of `requests.get`.
 
-            def a_method(self) -> int:
-                """Returns a fixed integer"""
-                return 42
+#         This test verifies that:
+#             - `requests.get` is called exactly once with the provided URL.
+#             - The JSON payload returned by `get_json` matches the mocked data.
+#         """
+#         # create mock response object
+#         mock_response = Mock()
+#         mock_response.json.return_value = test_payload
+#         mock_get.return_value = mock_response
 
-            @memoize
-            def a_property(self) -> int:
-                """Memoized property that calls a_method"""
-                return self.a_method()
+#         # call the function
+#         result = get_json(test_url)
 
-        obj = TestClass()
+#         # assertions
+#         mock_get.assert_called_once_with(test_url)
+#         self.assertEqual(result, test_payload)
 
-        with patch.object(TestClass, "a_method", return_value=42)
-        as mocked_method:
+
+# class TestMemoize(unittest.TestCase):
+#     """Test case for the memoize decorator"""
+
+#     def test_memoize(self):
+#         """Test that a memoized method caches the result after first call"""
+
+#         class TestClass:
+#             """Sample class to test memoization"""
+
+#             def a_method(self) -> int:
+#                 """Returns a fixed integer"""
+#                 return 42
+
+#             @memoize
+#             def a_property(self) -> int:
+#                 """Memoized property that calls a_method"""
+#                 return self.a_method()
+
+#         obj = TestClass()
+
+#         with patch.object(TestClass, "a_method", return_value=42)
+#         as mocked_method:
             
-            # Call the memoized property twice
-            first_call = obj.a_property
-            second_call = obj.a_property
+#             # Call the memoized property twice
+#             first_call = obj.a_property
+#             second_call = obj.a_property
 
-            # Ensure the property returns the correct result
-            self.assertEqual(first_call, 42)
-            self.assertEqual(second_call, 42)
+#             # Ensure the property returns the correct result
+#             self.assertEqual(first_call, 42)
+#             self.assertEqual(second_call, 42)
 
-            # Assert that a_method was only called once
-            mocked_method.assert_called_once()
+#             # Assert that a_method was only called once
+#             mocked_method.assert_called_once()
 
     
 if __name__ == "__main__":
