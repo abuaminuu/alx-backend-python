@@ -4,6 +4,7 @@ Unit tests for the GithubOrgClient class.
 """
 
 import unittest
+from unittest import TestCase
 from unittest.mock import patch, PropertyMock
 from client import GithubOrgClient
 from parameterized import parameterized
@@ -11,12 +12,12 @@ from parameterized import parameterized
 
 class TestGithubOrgClient(TestCase):
     """Test case for the GithubOrgClient class."""
-
+    
+    @patch("client.get_json")
     @parameterized.expand([
         ("google",),
         ("abc",),
     ])
-    @patch("client.get_json")
     def test_org(self, org_name, mock_get_json):
         """Test that GithubOrgClient.org returns the correct payload."""
         mock_payload = {"org": org_name, "status": "active"}
@@ -30,7 +31,7 @@ class TestGithubOrgClient(TestCase):
         self.assertEqual(result, mock_payload)
 
 
-    def test_public_repos_url(self):
+    def test_public_repo_url(self):
         """Test that _public_repos_url returns correct URL."""
         client = GithubOrgClient("test_org")
         expected_payload = {"repos_url": "https://api.github.com/orgs/test_org/repos"}
