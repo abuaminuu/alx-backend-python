@@ -47,32 +47,19 @@ def get_json(url: str) -> Dict:
     return response.json()
 
 
-def memoize(fn: Callable) -> Callable:
-    """Decorator to memoize a method.
-    Example
-    -------
-    class MyClass:
-        @memoize
-        def a_method(self):
-            print("a_method called")
-            return 42
-    >>> my_object = MyClass()
-    >>> my_object.a_method
-    a_method called
-    42
-    >>> my_object.a_method
-    42
-    """
-    attr_name = "_{}".format(fn.__name__)
+def memoize(method):
+    """Cache the result of the method."""
+    attr_name = method.__name__
 
-    @wraps(fn)
-    def memoized(self):
-        """"memoized wraps"""
-        if not hasattr(self, attr_name):
-            setattr(self, attr_name, fn(self))
-        return getattr(self, attr_name)
+    @property
+    def wrapper(self):
+        """Wrapper property that stores and returns cached method result."""
+        if attr_name not in self.__dict__:
+            self.__dict__[attr_name] = method(self)
+        return self.__dict__[attr_name]
 
-    return property(memoized)
+    return wrapper
+
 
 def sum(x, y):
     return x + y
