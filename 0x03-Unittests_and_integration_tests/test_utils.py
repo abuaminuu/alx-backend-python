@@ -5,7 +5,8 @@ Unit tests for utils.py (access_nested_map, get_json, memoize)
 
 import unittest
 from parameterized import parameterized
-from utils import access_nested_map, memoize
+from utils import access_nested_map, memoize, get_json
+from unittest.mock import patch, Mock
 
 
 class TestAccessNestedMap(unittest.TestCase):
@@ -63,6 +64,26 @@ class TestMemoize(unittest.TestCase):
 
             # Assert that a_method was only called once
             me.assert_called_once()
+
+
+class TestGetJson(unittest.TestCase):
+    """Unit tests for get_json."""
+
+    @parameterized.expand([
+        ("http://example.com", {"payload": True}),
+        ("http://holberton.io", {"payload": False}),
+    ])
+    @patch("utils.requests.get")
+    def test_get_json(self, url, payload, mock_get):
+        """Test JSON retrieval with mocked requests.get."""
+        mock_response = Mock()
+        mock_response.json.return_value = payload
+        mock_get.return_value = mock_response
+
+        result = get_json(url)
+
+        mock_get.assert_called_once_with(url)
+        self.assertEqual(result, payload)
 
 
 if __name__ == "__main__":
