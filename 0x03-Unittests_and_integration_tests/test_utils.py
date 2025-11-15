@@ -22,11 +22,10 @@ class TestAccessNestedMap(unittest.TestCase):
     """
 
     @parameterized.expand([
-            ({"a": 1}, ("a",), 1),
-            ({"a": {"b": 2}}, ("a",), {"b": 2}),
-            ({"a": {"b": 2}}, ("a", "b"), 2),
+        ({"a": 1}, ("a",), 1),
+        ({"a": {"b": 2}}, ("a",), {"b": 2}),
+        ({"a": {"b": 2}}, ("a", "b"), 2),
     ])
-
     def test_access_nested_map(self, nested_map, path, expected):
         """
         Test that access_nested_map returns correct value for
@@ -82,12 +81,10 @@ class TestGetJson(unittest.TestCase):
         ]
     )
     @patch("utils.requests.get")
-    def test_get_json(self, test_url, test_payload, mock_get) -> None:
+    def test_get_json(self, test_url, test_payload, mock_get):
         """
-        Test that get_json returns expected result with mocked requests.get.
         Test that `get_json` returns the expected result when
         `requests.get` is mocked.
-
         Args:
             test_url (str): The URL to be passed into the `get_json` function.
             test_payload (Dict): The fake JSON payload returned by
@@ -103,7 +100,7 @@ class TestGetJson(unittest.TestCase):
         mock_response.json.return_value = test_payload
         mock_get.return_value = mock_response
 
-        # call the function
+        # call the function and get original sample as result
         result = get_json(test_url)
 
         # assertions
@@ -131,7 +128,8 @@ class TestMemoize(unittest.TestCase):
 
         obj = TestClass()
 
-        with patch.object(TestClass, "a_method", return_value=42) as mocked_method:
+        # me = mocked_method
+        with patch.object(TestClass, "a_method", return_value=42) as me:
             # Call the memoized property twice
             first_call = obj.a_property
             second_call = obj.a_property
@@ -141,7 +139,7 @@ class TestMemoize(unittest.TestCase):
             self.assertEqual(second_call, 42)
 
             # Assert that a_method was only called once
-            mocked_method.assert_called_once()
+            me.assert_called_once()
 
 
 if __name__ == "__main__":
