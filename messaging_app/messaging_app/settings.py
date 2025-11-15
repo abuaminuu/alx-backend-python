@@ -20,20 +20,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-<<<<<<< HEAD
+
 SECRET_KEY = 'django-insecure-txdnmxoh@c+5sv-2=!nuu$vwx5%al=s$x#4dpbscyit6djlogj'
-=======
-SECRET_KEY = 'django-insecure-#+(ke%v8_#5y!1dxn4=u%k@o@8!@y5zkzsn1r_iote@*v%uq)e'
->>>>>>> init commit
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
 
+AUTH_USER_MODEL = 'chats.User'
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
