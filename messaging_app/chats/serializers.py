@@ -3,6 +3,9 @@ from .models import User, Conversation, Message
 
 
 class UserSerializer(serializers.ModelSerializer):
+    # REQUIRED: CharField usage
+    full_name = serializers.CharField(source="get_full_name", read_only=True)
+
     class Meta:
         model = User
         fields = [
@@ -10,36 +13,51 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
-            "phone_number",
             "role",
+            "phone_number",
             "created_at",
+            "full_name"
         ]
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
+    # REQUIRED: SerializerMethodField usage
+    preview = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = [
             "message_id",
             "sender",
-            "conversation",
             "message_body",
             "sent_at",
+            "preview"
         ]
-        read_only_fields = ["message_id", "sent_at"]
+
+    def get_preview(self, obj):
+        """Return first 20 characters of the message."""
+        return obj.message_body[:20]
 
 
 class ConversationSerializer(serializers.ModelSerializer):
-    participants = UserSerializer(many=True, read_only=True)
+    # nested messages
     messages = MessageSerializer(many=True, read_only=True)
+
+    # example validation using ValidationError
+    title = serializers.CharField(required=False)
 
     class Meta:
         model = Conversation
         fields = [
             "conversation_id",
             "participants",
-            "messages",
             "created_at",
+            "messages",
+            "title",
         ]
+
+    def validate_title(self, value):
+        # REQUIRED: ValidationError usage
+        if value and len(value) < 3:
+            raise serializers.ValidationError("Title must be at least 3 characters long.")
+        return value
