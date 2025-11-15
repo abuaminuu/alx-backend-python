@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unit tests for access_nested_map.
+Unit tests for utils.py (access_nested_map, get_json, memoize)
 """
 
 import unittest
