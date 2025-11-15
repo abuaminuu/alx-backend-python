@@ -18,7 +18,8 @@ class TestGithubOrgClient(unittest.TestCase):
         ("abc",),
     ])
     def test_org(self, org_name, mock_get_json):
-        """Test that GithubOrgClient.org returns the correct payload."""
+        """Test that GithubOrgClient.org returns the correct 
+        GithubOrgClient.org returns the payload."""
         mock_payload = {"org": org_name, "status": "active"}
         mock_get_json.return_value = mock_payload
 
@@ -39,3 +40,6 @@ class TestGithubOrgClient(unittest.TestCase):
             mock_org.return_value = {"repos_url": "https://api.github.com/orgs/test_org/repos"}
             result = client._public_repos_url
             self.assertEqual(result, "https://api.github.com/orgs/test_org/repos")
+
+        def test_public_repos(self):
+            pass
