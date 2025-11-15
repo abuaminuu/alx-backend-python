@@ -59,7 +59,3 @@ def memoize(method):
         return self.__dict__[attr_name]
 
     return wrapper
-
-
-def sum(x, y):
-    return x + y
