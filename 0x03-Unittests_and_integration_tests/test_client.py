@@ -4,9 +4,9 @@ Unit tests for the GithubOrgClient class.
 """
 
 import unittest
-from unittest.mock import patch
-from parameterized import parameterized
+from unittest.mock import patch, PropertyMock
 from client import GithubOrgClient
+from parameterized import parameterized
 
 
 class TestGithubOrgClient(unittest.TestCase):
@@ -18,24 +18,27 @@ class TestGithubOrgClient(unittest.TestCase):
     ])
     @patch("client.get_json")
     def test_org(self, org_name, mock_get_json):
-        """
-        Test that GithubOrgClient.org returns the correct value
-        and that get_json is called exactly once with the right URL.
-        """
-
-        # Create a mock response
+        """Test that GithubOrgClient.org returns the correct payload."""
         mock_payload = {"org": org_name, "status": "active"}
         mock_get_json.return_value = mock_payload
 
-        # Initialize the client with the test organization name
         client = GithubOrgClient(org_name)
-
-        # Call the org property to trigger the HTTP fetch (mocked)
         result = client.org
 
-        # Ensure get_json was called once with the correct API endpoint
         expected_url = f"https://api.github.com/orgs/{org_name}"
         mock_get_json.assert_called_once_with(expected_url)
-
-        # Check that the result matches the mock payload
         self.assertEqual(result, mock_payload)
+
+    def test_public_repos_url(self):
+        """Test that _public_repos_url returns the correct URL based on org."""
+        client = GithubOrgClient("test_org")
+        expected_payload = {"repos_url": "https://api.github.com/orgs/test_org/repos"}
+
+        # Mock the org property to return a known payload
+        with patch.object(
+            GithubOrgClient, "org", new_callable=PropertyMock
+        ) as mock_org:
+            mock_org.return_value = expected_payload
+
+            result = client._public_repos_url
+            self.assertEqual(result, expected_payload["repos_url"])
