@@ -47,15 +47,14 @@ def get_json(url: str) -> Dict:
     return response.json()
 
 
-def memoize(method):
-    """Cache the result of the method."""
-    attr_name = method.__name__
+def memoize(func):
+    """Decorator for caching method results."""
+    attr_name = f"_{func.__name__}_cache"
 
     @property
     def wrapper(self):
-        """Wrapper property that stores and returns cached method result."""
-        if attr_name not in self.__dict__:
-            self.__dict__[attr_name] = method(self)
-        return self.__dict__[attr_name]
+        if not hasattr(self, attr_name):
+            setattr(self, attr_name, func(self))
+        return getattr(self, attr_name)
 
     return wrapper
