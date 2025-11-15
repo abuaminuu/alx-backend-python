@@ -30,6 +30,7 @@ class TestAccessNestedMap(unittest.TestCase):
             access_nested_map(nested_map, path)
         self.assertEqual(str(error.exception), repr(path[-1]))
 
+
 class TestMemoize(unittest.TestCase):
     """Test case for the memoize decorator"""
 
@@ -66,4 +67,3 @@ class TestMemoize(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
