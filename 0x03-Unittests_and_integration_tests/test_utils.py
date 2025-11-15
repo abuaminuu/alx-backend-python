@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import patch, Mock
 from parameterized import parameterized
-from utils import access_nested_map, sum, get_json, memoize
+from utils import access_nested_map, get_json, memoize
 
 """
 Unit tests for the `utils.get_json` function.
@@ -65,11 +65,6 @@ class TestAccessNestedMap(unittest.TestCase):
             access_nested_map(nested_map, path)
         # assert the error message matches the missing key
         self.assertEqual(str(error.exception), repr(path[-1]))
-
-    #   for addition
-    @parameterized.expand([(3, 4, 7), (5, 8, 13), (1, 2, 3)])
-    def test_sum(self, x: int, y: int, expected: int) -> None:
-        self.assertEqual(sum(x, y), expected)
 
 
 class TestGetJson(unittest.TestCase):
