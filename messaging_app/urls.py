@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 """messaging_app URL Configuration
 
@@ -26,5 +27,15 @@ from django.urls import path, include
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/", include("chats.urls")),
+=======
+from django.contrib import admin
+from django.urls import path, include
+
+api_path = "api/"
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/", include("chats.urls")),
+    path('api-auth/', include('rest_framework.urls'))
+>>>>>>> c6f140bce5e83f4d140fd345efba2ace1d0c798e
 
 ]

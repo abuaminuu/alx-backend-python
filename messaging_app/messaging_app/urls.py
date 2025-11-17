@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+<<<<<<< HEAD
 from rest_framework.routers import DefaultRouter
 from chats.views import ConversationViewSet, MessageViewSet
 
@@ -28,3 +29,12 @@ urlpatterns = [
     path('api/', include(router.urls)),  # Include all router-generated URLs under /api/
 ]
 
+=======
+
+urlpatterns = [
+    path('admin/', admin.site.urls),
+    path('api/', include('chats.urls')),
+    path('api-auth/', include('rest_framework.urls'))
+
+]
+>>>>>>> c6f140bce5e83f4d140fd345efba2ace1d0c798e
