@@ -5,7 +5,7 @@ from .models import User, Conversation, Message
 class UserSerializer(serializers.ModelSerializer):
     # REQUIRED: CharField usage
     full_name = serializers.CharField(source="get_full_name", read_only=True)
-
+    sender = serializers.StringRelatedField(read_only=True)
     class Meta:
         model = User
         fields = [
@@ -18,7 +18,7 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
             "full_name"
         ]
-
+        read_only_fields = ["sender", "timestamps"]
 
 class MessageSerializer(serializers.ModelSerializer):
     # REQUIRED: SerializerMethodField usage
@@ -42,7 +42,8 @@ class MessageSerializer(serializers.ModelSerializer):
 class ConversationSerializer(serializers.ModelSerializer):
     # nested messages
     messages = MessageSerializer(many=True, read_only=True)
-
+    participants = serializers.StringRelatedField(many=True, read_only=True)
+   
     # example validation using ValidationError
     title = serializers.CharField(required=False)
 
