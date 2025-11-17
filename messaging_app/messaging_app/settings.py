@@ -47,6 +47,8 @@ INSTALLED_APPS = [
 # configure DRF to use authentication and permission classes
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'chats.auth.CustomJWTAuthentication',  # Use our custom JWT auth
+        'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         # Add other authentication classes as needed
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -68,6 +70,7 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 MIDDLEWARE = [
