@@ -62,3 +62,34 @@ class ConversationSerializer(serializers.ModelSerializer):
         if value and len(value) < 3:
             raise serializers.ValidationError("Title must be at least 3 characters long.")
         return value
+
+
+# editions: Updated Serializers for Better Validation
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender = serializers.StringRelatedField(read_only=True)
+    conversation = serializers.PrimaryKeyRelatedField(queryset=Conversation.objects.all())
+    
+    class Meta:
+        model = Message
+        fields = ['id', 'conversation', 'sender', 'content', 'timestamp', 'read']
+        read_only_fields = ['sender', 'timestamp']
+    
+    def validate_conversation(self, value):
+        """
+        Validate that the current user is a participant in the conversation
+        """
+        user = self.context['request'].user
+        if user not in value.participants.all():
+            raise serializers.ValidationError("You are not a participant in this conversation")
+        return value
+
+class ConversationSerializer(serializers.ModelSerializer):
+    participants = serializers.StringRelatedField(many=True, read_only=True)
+    messages = MessageSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Conversation
+        fields = ['id', 'participants', 'messages', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+

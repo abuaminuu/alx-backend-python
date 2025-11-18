@@ -1,1 +1,2 @@
 aiosqlite
+djangorestframework-simplejwt

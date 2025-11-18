@@ -6,9 +6,11 @@ from .models import Conversation, Message, User
 from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework import viewsets, status, filters  # <-- filters imported
 from rest_framework import viewsets, permissions
-from .permissions import IsParticipant, IsMessageOwner, IsConversationParticipant
+from .permissions import    IsParticipant, IsMessageOwner, IsConversationParticipant, IsParticipantOfConversation
+    
 
 # Create your views here.
+
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
     serializer_class = ConversationSerializer
@@ -106,8 +108,6 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-
-
 class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
     permission_classes = [permissions.IsAuthenticated, IsParticipant]
@@ -132,4 +132,73 @@ class MessageViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         # Automatically set the sender to the current user
+        serializer.save(sender=self.request.user)
+
+# edition
+
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Conversation with custom permissions task 1
+    """
+    serializer_class = ConversationSerializer
+    permission_classes = [IsParticipantOfConversation]
+    
+    def get_queryset(self):
+        """
+        Users can only see conversations they are participants in
+        """
+        return Conversation.objects.filter(participants=self.request.user)
+    
+    def perform_create(self, serializer):
+        """
+        Automatically add the current user as a participant when creating conversation
+        """
+        conversation = serializer.save()
+        conversation.participants.add(self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def add_participant(self, request, pk=None):
+        """
+        Custom action to add participants to conversation
+        Only conversation participants can add others
+        """
+        conversation = self.get_object()
+        user_id = request.data.get('user_id')
+        
+        # Check if current user is participant (permission already handled by IsParticipantOfConversation)
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(id=user_id)
+            conversation.participants.add(user)
+            return Response({'status': 'participant added'})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=400)
+
+class MessageViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Message with custom permissions
+    """
+    serializer_class = MessageSerializer
+    permission_classes = [IsParticipantOfConversation, IsMessageOwner]
+    
+    def get_queryset(self):
+        """
+        Users can only see messages from conversations they participate in
+        """
+        user = self.request.user
+        return Message.objects.filter(conversation__participants=user).order_by('-timestamp')
+    
+    def perform_create(self, serializer):
+        """
+        Automatically set the sender to the current user
+        and validate that user is a participant in the conversation
+        """
+        conversation = serializer.validated_data['conversation']
+        
+        # Check if user is participant in the conversation
+        if self.request.user not in conversation.participants.all():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You are not a participant in this conversation")
+        
         serializer.save(sender=self.request.user)
