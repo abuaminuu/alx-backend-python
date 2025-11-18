@@ -368,3 +368,133 @@ class MessageViewSet(viewsets.ModelViewSet):
         message.read = True
         message.save()
         return Response({'status': 'message marked as read'})
+
+
+# added pagination and filters... task 2
+
+class MessageViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Message with pagination, filtering, and custom permissions
+    """
+    serializer_class = MessageSerializer
+    permission_classes = [IsParticipantOfConversation, IsMessageOwner]
+    pagination_class = MessagePagination  # Custom pagination
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = MessageFilter  # Our custom filter class
+    search_fields = ['content']  # Enable search on message content
+    ordering_fields = ['timestamp', 'read']  # Enable ordering by timestamp and read status
+    ordering = ['-timestamp']  # Default ordering: newest first
+    
+    def get_queryset(self):
+        """
+        Users can only see messages from conversations they participate in
+        Apply additional filtering based on query parameters
+        """
+        user = self.request.user
+        queryset = Message.objects.filter(conversation__participants=user)
+        
+        # Apply additional custom filtering if needed
+        return queryset.select_related('sender', 'conversation')
+    
+    def perform_create(self, serializer):
+        """
+        Automatically set the sender to the current user
+        and validate that user is a participant in the conversation
+        """
+        conversation = serializer.validated_data['conversation']
+        
+        # Check if user is participant in the conversation
+        if self.request.user not in conversation.participants.all():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You are not a participant in this conversation")
+        
+        serializer.save(sender=self.request.user)
+    
+    def handle_exception(self, exc):
+        """
+        Custom exception handler to return HTTP_403_FORBIDDEN when needed
+        """
+        from rest_framework.exceptions import PermissionDenied
+        
+        if isinstance(exc, PermissionDenied):
+            return Response(
+                {"detail": "You do not have permission to perform this action on this message."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().handle_exception(exc)
+    
+    @action(detail=False, methods=['get'])
+    def unread(self, request):
+        """
+        Custom action to get unread messages with pagination and filtering
+        """
+        queryset = self.get_queryset().filter(read=False)
+        
+        # Apply filtering to the unread messages
+        filtered_queryset = self.filter_queryset(queryset)
+        
+        # Paginate the results
+        page = self.paginate_queryset(filtered_queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(filtered_queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def recent(self, request):
+        """
+        Custom action to get recent messages (last 24 hours)
+        """
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+        queryset = self.get_queryset().filter(timestamp__gte=twenty_four_hours_ago)
+        
+        # Apply filtering
+        filtered_queryset = self.filter_queryset(queryset)
+        
+        # Paginate
+        page = self.paginate_queryset(filtered_queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(filtered_queryset, many=True)
+        return Response(serializer.data)
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Conversation (updated to maintain consistency)
+    """
+    serializer_class = ConversationSerializer
+    permission_classes = [IsParticipantOfConversation]
+    pagination_class = MessagePagination  # Use same pagination for consistency
+    
+    def get_queryset(self):
+        """
+        Users can only see conversations they are participants in
+        """
+        return Conversation.objects.filter(participants=self.request.user)
+    
+    def perform_create(self, serializer):
+        """
+        Automatically add the current user as a participant when creating conversation
+        """
+        conversation = serializer.save()
+        conversation.participants.add(self.request.user)
+    
+    def handle_exception(self, exc):
+        """
+        Custom exception handler to return HTTP_403_FORBIDDEN when needed
+        """
+        from rest_framework.exceptions import PermissionDenied
+        
+        if isinstance(exc, PermissionDenied):
+            return Response(
+                {"detail": "You do not have permission to perform this action."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().handle_exception(exc)
