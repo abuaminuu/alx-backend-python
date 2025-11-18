@@ -202,3 +202,169 @@ class MessageViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You are not a participant in this conversation")
         
         serializer.save(sender=self.request.user)
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Conversation with custom permissions and explicit 403 handling
+    """
+    serializer_class = ConversationSerializer
+    permission_classes = [IsParticipantOfConversation]
+    
+    def get_queryset(self):
+        """
+        Users can only see conversations they are participants in
+        """
+        return Conversation.objects.filter(participants=self.request.user)
+    
+    def perform_create(self, serializer):
+        """
+        Automatically add the current user as a participant when creating conversation
+        """
+        conversation = serializer.save()
+        conversation.participants.add(self.request.user)
+    
+    def handle_exception(self, exc):
+        """
+        Custom exception handler to return HTTP_403_FORBIDDEN when needed
+        """
+        from rest_framework.exceptions import PermissionDenied
+        
+        if isinstance(exc, PermissionDenied):
+            return Response(
+                {"detail": "You do not have permission to perform this action."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().handle_exception(exc)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Handle PUT and PATCH requests with explicit permission checking
+        """
+        try:
+            return super().update(request, *args, **kwargs)
+        except PermissionDenied:
+            return Response(
+                {"detail": "You are not allowed to update this conversation."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Handle DELETE requests with explicit permission checking
+        """
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except PermissionDenied:
+            return Response(
+                {"detail": "You are not allowed to delete this conversation."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    
+    @action(detail=True, methods=['post'])
+    def add_participant(self, request, pk=None):
+        """
+        Custom action to add participants to conversation
+        Only conversation participants can add others
+        """
+        conversation = self.get_object()
+        user_id = request.data.get('user_id')
+        
+        # Check if current user is participant
+        if request.user not in conversation.participants.all():
+            return Response(
+                {"detail": "You must be a participant to add users to this conversation."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(id=user_id)
+            conversation.participants.add(user)
+            return Response({'status': 'participant added'})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=400)
+
+
+class MessageViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for Message with custom permissions and explicit 403 handling
+    """
+    serializer_class = MessageSerializer
+    permission_classes = [IsParticipantOfConversation, IsMessageOwner]
+    
+    def get_queryset(self):
+        """
+        Users can only see messages from conversations they participate in
+        """
+        user = self.request.user
+        return Message.objects.filter(conversation__participants=user).order_by('-timestamp')
+    
+    def perform_create(self, serializer):
+        """
+        Automatically set the sender to the current user
+        and validate that user is a participant in the conversation
+        """
+        conversation = serializer.validated_data['conversation']
+        
+        # Check if user is participant in the conversation
+        if self.request.user not in conversation.participants.all():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You are not a participant in this conversation")
+        
+        serializer.save(sender=self.request.user)
+    
+    def handle_exception(self, exc):
+        """
+        Custom exception handler to return HTTP_403_FORBIDDEN when needed
+        """
+        from rest_framework.exceptions import PermissionDenied
+        
+        if isinstance(exc, PermissionDenied):
+            return Response(
+                {"detail": "You do not have permission to perform this action on this message."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().handle_exception(exc)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Handle PUT and PATCH requests with explicit permission checking
+        """
+        try:
+            return super().update(request, *args, **kwargs)
+        except PermissionDenied:
+            return Response(
+                {"detail": "You can only update your own messages."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    
+    def destroy(self, request, *args, **kwargs):
+        """
+        Handle DELETE requests with explicit permission checking
+        """
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except PermissionDenied:
+            return Response(
+                {"detail": "You can only delete your own messages."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+    
+    @action(detail=True, methods=['put', 'patch'])
+    def mark_as_read(self, request, pk=None):
+        """
+        Custom action to mark message as read
+        Only participants can mark messages as read
+        """
+        message = self.get_object()
+        
+        # Check if user is participant in the conversation
+        if request.user not in message.conversation.participants.all():
+            return Response(
+                {"detail": "You must be a participant to mark messages as read."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        message.read = True
+        message.save()
+        return Response({'status': 'message marked as read'})
