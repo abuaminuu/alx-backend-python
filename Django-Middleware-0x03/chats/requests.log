@@ -1,0 +1,2 @@
+2024-01-15 10:30:45.123456 - User: user1 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
