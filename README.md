@@ -81,5 +81,3 @@ Through this project, I deepened my understanding of **context managers**, **res
 This work is part of the **ALX Backend Python** learning series, emphasizing real-world problem solving with Pythonic design.
 
 ---
-
-
