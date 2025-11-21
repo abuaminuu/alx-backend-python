@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-from django.http import HttpResponseForbidden
 import time
 from django.http import HttpResponseForbidden, JsonResponse
 import re
+from django.contrib.auth.models import User
 
 
 class RequestLoggingMiddleware:
@@ -298,3 +298,116 @@ class OffensiveLanguageMiddleware:
         except FileNotFoundError:
             # Use default list if file not found
             pass
+
+
+class RolePermissionMiddleware:
+    """
+    Middleware that checks user's role before allowing access to specific actions
+    Only admin and moderator roles can access certain endpoints
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        
+        # Define protected endpoints and required roles
+        self.protected_endpoints = {
+            # Endpoint: [allowed_roles]
+            '/api/admin/': ['admin', 'moderator'],
+            '/api/conversations/delete/': ['admin'],
+            '/api/users/': ['admin', 'moderator'],
+            '/api/messages/bulk_delete/': ['admin', 'moderator'],
+            '/api/reports/': ['admin', 'moderator'],
+            '/api/system/': ['admin'],
+        }
+    
+    def __call__(self, request):
+        # Check if the request path matches any protected endpoint
+        protected_path = self.get_protected_path(request.path)
+        
+        if protected_path:
+            # Get user from request
+            user = request.user
+            
+            # Check if user is authenticated
+            if not user.is_authenticated:
+                return self.unauthorized_response()
+            
+            # Check if user has required role
+            if not self.has_required_role(user, protected_path):
+                return self.forbidden_response(user)
+        
+        response = self.get_response(request)
+        return response
+    
+    def get_protected_path(self, request_path):
+        """
+        Check if the request path matches any protected endpoint
+        """
+        for protected_path in self.protected_endpoints.keys():
+            if request_path.startswith(protected_path):
+                return protected_path
+        return None
+    
+    def has_required_role(self, user, protected_path):
+        """
+        Check if user has the required role for the protected endpoint
+        """
+        required_roles = self.protected_endpoints[protected_path]
+        
+        # Check user's role (you can customize this based on your user model)
+        user_role = self.get_user_role(user)
+        
+        return user_role in required_roles
+    
+    def get_user_role(self, user):
+        """
+        Extract user role from user object
+        This can be customized based on your user model structure
+        """
+        # Method 1: Check if user is staff/superuser
+        if user.is_superuser:
+            return 'admin'
+        elif user.is_staff:
+            return 'moderator'
+        
+        # Method 2: Check user groups
+        if user.groups.filter(name='Admin').exists():
+            return 'admin'
+        elif user.groups.filter(name='Moderator').exists():
+            return 'moderator'
+        
+        # Method 3: Check custom user profile (if exists)
+        if hasattr(user, 'profile'):
+            return getattr(user.profile, 'role', 'user')
+        
+        # Default role
+        return 'user'
+    
+    def unauthorized_response(self):
+        """
+        Return response for unauthenticated users
+        """
+        return JsonResponse(
+            {
+                'error': 'authentication_required',
+                'message': 'Authentication required to access this resource.',
+                'code': 'UNAUTHORIZED_ACCESS'
+            },
+            status=401
+        )
+    
+    def forbidden_response(self, user):
+        """
+        Return response for users without required permissions
+        """
+        user_role = self.get_user_role(user)
+        return JsonResponse(
+            {
+                'error': 'insufficient_permissions',
+                'message': 'You do not have sufficient permissions to perform this action.',
+                'user_role': user_role,
+                'required_roles': list(self.protected_endpoints.values()),
+                'code': 'FORBIDDEN_ACCESS'
+            },
+            status=403
+        )
