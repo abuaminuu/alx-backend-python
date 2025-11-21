@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 from django.http import HttpResponseForbidden
 import time
+from django.http import HttpResponseForbidden, JsonResponse
+import re
+
 
 class RequestLoggingMiddleware:
     """
@@ -178,3 +181,120 @@ class RateLimitMiddleware:
         
         for ip in ips_to_remove:
             del self.request_log[ip]
+
+
+
+class OffensiveLanguageMiddleware:
+    """
+    Middleware that detects and blocks offensive language in chat messages
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # List of offensive words/phrases to block
+        self.offensive_words = [
+            'badword1', 'badword2', 'offensive1', 'offensive2',
+            'hate', 'attack', 'violent', 'abuse', 'harass',
+            # Add more offensive terms as needed
+            'curse1', 'curse2', 'insult', 'threat'
+        ]
+        
+        # Common offensive patterns
+        self.offensive_patterns = [
+            r'\b(hate|kill|hurt)\b',
+            r'\b(stupid|idiot|dumb)\b',
+            r'\b(attack|fight|violence)\b',
+        ]
+    
+    def __call__(self, request):
+        # Check if this is a POST request with message content
+        if (request.method == 'POST' and 
+            self.is_message_request(request) and
+            request.content_type == 'application/json'):
+            
+            try:
+                # Get the request body to check for offensive content
+                body = request.body.decode('utf-8')
+                
+                # Check for offensive language in the request body
+                if self.contains_offensive_language(body):
+                    return self.offensive_content_response()
+                    
+            except (UnicodeDecodeError, ValueError) as e:
+                # If we can't decode the body, proceed without checking
+                pass
+        
+        response = self.get_response(request)
+        return response
+    
+    def is_message_request(self, request):
+        """
+        Check if the request is for sending messages
+        """
+        message_endpoints = [
+            '/api/messages/',
+            '/api/chats/',
+            '/api/chat/'
+        ]
+        return any(request.path.startswith(endpoint) for endpoint in message_endpoints)
+    
+    def contains_offensive_language(self, text):
+        """
+        Check if text contains offensive language using multiple methods
+        """
+        text_lower = text.lower()
+        
+        # Method 1: Check for exact offensive words
+        for word in self.offensive_words:
+            if word.lower() in text_lower:
+                return True
+        
+        # Method 2: Check for offensive patterns
+        for pattern in self.offensive_patterns:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                return True
+        
+        # Method 3: Check for excessive capitalization (shouting)
+        if self.is_excessive_shouting(text):
+            return True
+            
+        return False
+    
+    def is_excessive_shouting(self, text):
+        """
+        Detect if message is excessive shouting (all caps)
+        """
+        words = text.split()
+        if len(words) < 3:  # Too short to determine shouting
+            return False
+        
+        # Count uppercase words
+        upper_count = sum(1 for word in words if word.isupper() and len(word) > 1)
+        
+        # If more than 50% of words are uppercase, consider it shouting
+        return upper_count > len(words) * 0.5
+    
+    def offensive_content_response(self):
+        """
+        Return appropriate response when offensive content is detected
+        """
+        return JsonResponse(
+            {
+                'error': 'offensive_content_detected',
+                'message': 'Your message contains language that violates our community guidelines.',
+                'code': 'OFFENSIVE_CONTENT_BLOCKED',
+                'suggestion': 'Please review our community guidelines and try again with appropriate language.'
+            },
+            status=400
+        )
+    
+    def load_offensive_words_from_file(self, file_path='offensive_words.txt'):
+        """
+        Optional: Load offensive words from a file
+        """
+        try:
+            with open(file_path, 'r') as file:
+                self.offensive_words = [line.strip().lower() for line in file if line.strip()]
+        except FileNotFoundError:
+            # Use default list if file not found
+            pass
