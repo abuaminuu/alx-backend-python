@@ -1,4 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+from django.http import HttpResponseForbidden
+import time
 
 class RequestLoggingMiddleware:
     """
@@ -81,3 +83,98 @@ class RestrictAccessByTimeMiddleware:
         
         # Check if path starts with any messaging endpoint
         return any(path.startswith(messaging_path) for messaging_path in messaging_paths)
+
+
+
+class RateLimitMiddleware:
+    """
+    Middleware that limits the number of messages a user can send based on IP address
+    Limit: 5 messages per minute per IP
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # Store request counts per IP: {ip: [timestamp1, timestamp2, ...]}
+        self.request_log = {}
+        self.limit = 5  # 5 messages
+        self.window = 60  # 1 minute in seconds
+    
+    def __call__(self, request):
+        # Only check POST requests to messaging endpoints
+        if request.method == 'POST' and self.is_messaging_endpoint(request.path):
+            # Get client IP address
+            ip = self.get_client_ip(request)
+            
+            # Check rate limit
+            if self.is_rate_limited(ip):
+                return HttpResponseForbidden(
+                    f"Rate limit exceeded. Maximum {self.limit} messages per {self.window} seconds. "
+                    f"Please wait before sending more messages."
+                )
+            
+            # Record this request
+            self.record_request(ip)
+        
+        response = self.get_response(request)
+        return response
+    
+    def get_client_ip(self, request):
+        """
+        Get the client's IP address from request
+        """
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(',')[0]
+        else:
+            ip = request.META.get('REMOTE_ADDR', '0.0.0.0')
+        return ip
+    
+    def is_messaging_endpoint(self, path):
+        """
+        Check if the request path is for messaging endpoints
+        """
+        messaging_paths = ['/api/messages/', '/api/chats/']
+        return any(path.startswith(messaging_path) for messaging_path in messaging_paths)
+    
+    def is_rate_limited(self, ip):
+        """
+        Check if the IP has exceeded the rate limit
+        """
+        current_time = time.time()
+        
+        # Initialize if IP not in log
+        if ip not in self.request_log:
+            self.request_log[ip] = []
+        
+        # Remove old timestamps (outside the time window)
+        window_start = current_time - self.window
+        self.request_log[ip] = [timestamp for timestamp in self.request_log[ip] if timestamp > window_start]
+        
+        # Check if limit exceeded
+        return len(self.request_log[ip]) >= self.limit
+    
+    def record_request(self, ip):
+        """
+        Record a request timestamp for the IP
+        """
+        current_time = time.time()
+        self.request_log[ip].append(current_time)
+        
+        # Clean up old IPs to prevent memory leaks (optional)
+        self.cleanup_old_entries()
+    
+    def cleanup_old_entries(self):
+        """
+        Remove IP entries that haven't been used in the last hour
+        """
+        current_time = time.time()
+        one_hour_ago = current_time - 3600
+        
+        ips_to_remove = []
+        for ip, timestamps in self.request_log.items():
+            # If no recent activity, mark for removal
+            if not timestamps or max(timestamps) < one_hour_ago:
+                ips_to_remove.append(ip)
+        
+        for ip in ips_to_remove:
+            del self.request_log[ip]
