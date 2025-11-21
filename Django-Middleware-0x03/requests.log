@@ -1,0 +1,12 @@
+2024-01-15 10:30:45.123456 - User: user1 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
+2024-01-15 10:30:45.123456 - User: user3 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
+2024-01-15 10:30:45.123456 - User: user4 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
+2024-01-15 10:30:45.123456 - User: user5 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
+2024-01-15 10:30:45.123456 - User: user6 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
+2024-01-15 10:30:45.123456 - User: user7 - Path: /api/conversations/ - Method: GET
+2024-01-15 10:31:15.654321 - User: Anonymous - Path: /api/auth/token/ - Method: POST
