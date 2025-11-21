@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # Testing API
 
 ## Test creating a: 
@@ -6,7 +6,7 @@
 - sending messages and 
 - fetching conversations
 - authentication (JWT token login) and ensure that unauthorized users cannot access private conversations.
-=======
+
 # ALX Backend Python 
 
 # Generators and Data Streaming
@@ -74,6 +74,4 @@ This work is part of the **ALX Backend Python** learning series, emphasizing rea
 
 ---
 
-
->>>>>>> 6a373d7db9817054d31fc31bdcc9e4c7870f9eab
 
