@@ -41,18 +41,42 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'chats',
     'rest_framework',
+    'rest_framework_simplejwt',
 ]
 
 # configure DRF to use authentication and permission classes
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'chats.auth.CustomJWTAuthentication',  # Use our custom JWT auth
+        'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         # Add other authentication classes as needed
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # Optional, for browsable API
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
         # Add other permission classes as needed
+          
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',  # Enable filtering
+        'rest_framework.filters.SearchFilter',  # Optional: enable search
+        'rest_framework.filters.OrderingFilter',  # Optional: enable ordering
+}
+
+# JWT Settings
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 MIDDLEWARE = [
