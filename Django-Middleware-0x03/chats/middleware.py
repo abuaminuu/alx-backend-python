@@ -300,7 +300,7 @@ class OffensiveLanguageMiddleware:
             pass
 
 
-class RolePermissionMiddleware:
+class RolepermissionMiddleware:
     """
     Middleware that checks user's role before allowing access to specific actions
     Only admin and moderator roles can access certain endpoints
