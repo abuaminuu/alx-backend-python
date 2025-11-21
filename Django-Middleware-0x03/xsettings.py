@@ -30,7 +30,6 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 AUTH_USER_MODEL = 'chats.User'
-
 # Application definition
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -39,33 +38,35 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'chats',
     'rest_framework',
     'rest_framework_simplejwt',
+    'chats',
 ]
 
 # configure DRF to use authentication and permission classes
+# Add other authentication classes as needed
+# Optional, for browsable API
+# Use our custom JWT auth
+# TODO wrong settigns...
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'chats.auth.CustomJWTAuthentication',  # Use our custom JWT auth
+        'chats.auth.CustomJWTAuthentication',  
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-        # Add other authentication classes as needed
         'rest_framework_simplejwt.authentication.JWTAuthentication',
-        # Optional, for browsable API
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
-        # Add other permission classes as needed
-          
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': [
-        'django_filters.rest_framework.DjangoFilterBackend',  # Enable filtering
-        'rest_framework.filters.SearchFilter',  # Optional: enable search
-        'rest_framework.filters.OrderingFilter',  # Optional: enable ordering
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ]
 }
 
 # JWT Settings
