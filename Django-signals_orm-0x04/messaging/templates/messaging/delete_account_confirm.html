@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Delete Account</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .danger { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Delete Your Account</h1>
+    
+    <div class="danger">
+        <h3>⚠️ Warning: This action cannot be undone!</h3>
+        <p>Deleting your account will permanently remove:</p>
+        <ul>
+            <li>All messages you sent</li>
+            <li>All messages you received</li>
+            <li>All your notifications</li>
+            <li>Your profile information</li>
+        </ul>
+    </div>
+
+    <div class="warning">
+        <p><strong>Are you sure you want to delete your account?</strong></p>
+        <p>This action is permanent and cannot be reversed.</p>
+    </div>
+
+    <div>
+        <button id="confirmDelete" class="btn-danger">Yes, Delete My Account Permanently</button>
+        <button onclick="window.history.back()" class="btn-secondary">Cancel</button>
+    </div>
+
+    <script>
+        document.getElementById('confirmDelete').addEventListener('click', function() {
+            if (confirm('Are you absolutely sure? This cannot be undone!')) {
+                fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        confirm_delete: true
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        window.location.href = '/';
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting account: ' + error);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
