@@ -10,4 +10,3 @@ class MessagingConfig(AppConfig):
         This ensures that signal handlers are connected
         """
         import messaging.signals
-        

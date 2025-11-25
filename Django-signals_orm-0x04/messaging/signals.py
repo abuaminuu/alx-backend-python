@@ -62,3 +62,23 @@ def send_real_time_notification(sender, instance, created, **kwargs):
         #         'message_id': instance.id
         #     }
         # )
+
+@receiver(pre_save, sender=Message)
+def log_message_edit(sender, instance, **kwargs):
+    """
+    Signal to log message edits before saving
+    """
+    if instance.pk:  # Only for existing messages (edits)
+        try:
+            old_message = Message.objects.get(pk=instance.pk)
+            if old_message.content != instance.content:  # Content changed
+                # Create history entry
+                MessageHistory.objects.create(
+                    message=instance,
+                    old_content=old_message.content,
+                    edited_by=instance.user
+                )
+                # Mark message as edited
+                instance.edited = True
+        except Message.DoesNotExist:
+            pass  # New message, no history to log

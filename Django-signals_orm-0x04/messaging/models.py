@@ -2,12 +2,24 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+# with signal
+class Message(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    edited = models.BooleanField(default=False)
+    
+    def __str__(self):
+        return f"{self.user.username}: {self.content[:50]}"
+
+# without signal
 class Message(models.Model):
     """
     Message model for storing chat messages between users
     """
     sender = models.ForeignKey(
-        User, 
+        User,
         on_delete=models.CASCADE, 
         related_name='sent_messages'
     )
@@ -29,6 +41,19 @@ class Message(models.Model):
     
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver} at {self.timestamp}"
+
+class MessageHistory(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='history')
+    old_content = models.TextField()
+    edited_at = models.DateTimeField(auto_now_add=True)
+    edited_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    
+    class Meta:
+        ordering = ['-edited_at']
+    
+    def __str__(self):
+        return f"History for Message {self.message.id} - {self.edited_at}"
+        
 
 class Notification(models.Model):
     """
