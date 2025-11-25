@@ -3,6 +3,10 @@ import time
 from django.http import HttpResponseForbidden, JsonResponse
 import re
 from django.contrib.auth.models import User
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+from django.db.models import Q, Count, Case, When, Value, IntegerField
 
 
 class RequestLoggingMiddleware:
@@ -384,6 +388,7 @@ class RolepermissionMiddleware:
         return 'user'
     
     def unauthorized_response(self):
+
         """
         Return response for unauthenticated users
         """
@@ -411,3 +416,189 @@ class RolepermissionMiddleware:
             },
             status=403
         )
+
+class Message(models.Model):
+    """
+    Enhanced Message model with threaded conversation support
+    """
+    sender = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='sent_messages'
+    )
+    receiver = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='received_messages'
+    )
+    content = models.TextField()
+    timestamp = models.DateTimeField(default=timezone.now)
+    is_read = models.BooleanField(default=False)
+    
+    # Threading support - self-referential foreign key for replies
+    parent_message = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        related_name='replies',
+        null=True,
+        blank=True,
+        verbose_name='Parent Message'
+    )
+    
+    # Additional fields for threading
+    thread_depth = models.PositiveIntegerField(default=0)  # Depth in thread (0 = root)
+    is_thread_starter = models.BooleanField(default=True)  # Whether this starts a thread
+    
+    class Meta:
+        ordering = ['thread_depth', 'timestamp']
+        indexes = [
+            models.Index(fields=['receiver', 'timestamp']),
+            models.Index(fields=['sender', 'timestamp']),
+            models.Index(fields=['parent_message', 'timestamp']),
+            models.Index(fields=['thread_depth', 'timestamp']),
+        ]
+    
+    def __str__(self):
+        if self.parent_message:
+            return f"Reply from {self.sender} to {self.parent_message.sender}'s message"
+        return f"Message from {self.sender} to {self.receiver} at {self.timestamp}"
+    
+    def save(self, *args, **kwargs):
+        """Override save to handle thread depth calculation"""
+        if self.parent_message:
+            self.thread_depth = self.parent_message.thread_depth + 1
+            self.is_thread_starter = False
+            # Ensure reply goes to the same conversation participants
+            self.receiver = self.parent_message.sender
+        else:
+            self.thread_depth = 0
+            self.is_thread_starter = True
+        
+        super().save(*args, **kwargs)
+    
+    def get_thread_replies(self, include_self=True):
+        """
+        Get all replies in this thread using recursive-like query
+        """
+        from django.db.models import Prefetch
+        
+        if include_self:
+            base_query = Message.objects.filter(
+                Q(id=self.id) | 
+                Q(parent_message=self) |
+                Q(parent_message__parent_message=self) |
+                Q(parent_message__parent_message__parent_message=self)
+            )
+        else:
+            base_query = Message.objects.filter(
+                Q(parent_message=self) |
+                Q(parent_message__parent_message=self) |
+                Q(parent_message__parent_message__parent_message=self)
+            )
+        
+        return base_query.select_related('sender', 'receiver', 'parent_message')
+    
+    @property
+    def reply_count(self):
+        """Get total number of replies in this thread"""
+        return self.replies.count()
+    
+    @property
+    def direct_reply_count(self):
+        """Get number of direct replies to this message"""
+        return self.replies.filter(thread_depth=self.thread_depth + 1).count()
+
+class ThreadManager(models.Manager):
+    """
+    Custom manager for threaded message operations
+    """
+    
+    def get_threads_for_user(self, user):
+        """
+        Get all thread starters for a user with optimized queries
+        """
+        return Message.objects.filter(
+            Q(sender=user) | Q(receiver=user),
+            is_thread_starter=True
+        ).select_related('sender', 'receiver').prefetch_related(
+            'replies__sender',
+            'replies__receiver'
+        ).order_by('-timestamp')
+    
+    def get_complete_thread(self, thread_starter_id):
+        """
+        Get entire thread with all replies using prefetch_related
+        """
+        return Message.objects.filter(
+            Q(id=thread_starter_id) |
+            Q(parent_message_id=thread_starter_id) |
+            Q(parent_message__parent_message_id=thread_starter_id) |
+            Q(parent_message__parent_message__parent_message_id=thread_starter_id)
+        ).select_related(
+            'sender', 'receiver', 'parent_message'
+        ).prefetch_related(
+            'replies__sender',
+            'replies__receiver',
+            'replies__replies__sender',
+            'replies__replies__receiver'
+        ).order_by('thread_depth', 'timestamp')
+    
+    def get_thread_with_reply_counts(self, thread_starter_id):
+        """
+        Get thread with annotated reply counts at each level
+        """
+        from django.db.models import Count, Subquery, OuterRef
+        
+        # Subquery to count direct replies for each message
+        direct_replies = Message.objects.filter(
+            parent_message=OuterRef('pk')
+        ).values('parent_message').annotate(
+            count=Count('id')
+        ).values('count')
+        
+        return Message.objects.filter(
+            Q(id=thread_starter_id) |
+            Q(parent_message_id=thread_starter_id) |
+            Q(parent_message__parent_message_id=thread_starter_id)
+        ).select_related('sender', 'receiver', 'parent_message').annotate(
+            direct_reply_count=Subquery(direct_replies, output_field=IntegerField())
+        ).order_by('thread_depth', 'timestamp')
+
+# Attach custom manager to Message model
+Message.objects = ThreadManager()
+
+class ConversationThread(models.Model):
+    """
+    Model to represent conversation threads for better organization
+    """
+    root_message = models.OneToOneField(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='conversation_thread'
+    )
+    participants = models.ManyToManyField(
+        User,
+        related_name='threads'
+    )
+    title = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
+    message_count = models.PositiveIntegerField(default=1)
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"Thread: {self.title or f'Message {self.root_message.id}'}"
+    
+    def update_message_count(self):
+        """Update the message count for this thread"""
+        self.message_count = Message.objects.filter(
+            Q(id=self.root_message_id) |
+            Q(parent_message=self.root_message) |
+            Q(parent_message__parent_message=self.root_message)
+        ).count()
+        self.save()
+
+# Keep existing Notification and UserDeletionLog models...

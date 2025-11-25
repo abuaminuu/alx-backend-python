@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Conversation Threads</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .thread { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .thread-header { display: flex; justify-content: space-between; align-items: center; }
+        .thread-participants { color: #666; font-size: 0.9em; }
+        .thread-preview { margin: 10px 0; color: #333; }
+        .thread-meta { display: flex; gap: 15px; font-size: 0.8em; color: #888; }
+        .reply-count { background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7em; }
+        .btn { padding: 8px 16px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>My Conversation Threads</h1>
+    
+    <div>
+        <a href="{% url 'create_thread' %}" class="btn">Start New Thread</a>
+    </div>
+    
+    <div id="threads-list">
+        {% for thread in threads %}
+        <div class="thread">
+            <div class="thread-header">
+                <h3>
+                    {% if thread.sender == user %}
+                    Conversation with {{ thread.receiver.username }}
+                    {% else %}
+                    Conversation with {{ thread.sender.username }}
+                    {% endif %}
+                </h3>
+                <span class="reply-count">{{ thread.total_replies }} replies</span>
+            </div>
+            
+            <div class="thread-preview">
+                <strong>{{ thread.sender.username }}:</strong> 
+                {{ thread.content|truncatewords:30 }}
+            </div>
+            
+            <div class="thread-meta">
+                <span>Started: {{ thread.timestamp|date:"M d, Y H:i" }}</span>
+                <span>Depth: {{ thread.thread_depth }}</span>
+            </div>
+            
+            <div style="margin-top: 10px;">
+                <a href="{% url 'thread_detail' thread.id %}" class="btn">View Thread</a>
+            </div>
+        </div>
+        {% empty %}
+        <p>No conversation threads yet.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>

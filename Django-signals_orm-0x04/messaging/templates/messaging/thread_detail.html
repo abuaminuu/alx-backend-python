@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Thread Conversation</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .message { margin: 10px 0; padding: 15px; border-left: 3px solid #007bff; background: #f8f9fa; }
+        .reply { margin-left: 40px; border-left-color: #28a745; background: #f0f0f0; }
+        .message-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .sender { font-weight: bold; color: #007bff; }
+        .timestamp { color: #666; font-size: 0.8em; }
+        .message-content { margin: 10px 0; }
+        .reply-form { margin: 20px 0; padding: 15px; background: #e9ecef; border-radius: 5px; }
+        textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .depth-0 { margin-left: 0; }
+        .depth-1 { margin-left: 30px; }
+        .depth-2 { margin-left: 60px; }
+        .depth-3 { margin-left: 90px; }
+    </style>
+</head>
+<body>
+    <h1>Thread Conversation</h1>
+    
+    <div>
+        <a href="{% url 'thread_list' %}">← Back to Threads</a>
+    </div>
+    
+    <div id="thread-container">
+        {% for depth, messages in organized_messages.items %}
+            {% for message in messages %}
+            <div class="message depth-{{ depth }} {% if depth > 0 %}reply{% endif %}" 
+                 data-message-id="{{ message.id }}" 
+                 data-depth="{{ depth }}">
+                <div class="message-header">
+                    <span class="sender">{{ message.sender.username }}</span>
+                    <span class="timestamp">{{ message.timestamp|date:"M d, Y H:i" }}</span>
+                </div>
+                <div class="message-content">
+                    {{ message.content }}
+                </div>
+                <div>
+                    <button onclick="showReplyForm({{ message.id }})">Reply</button>
+                    <span style="font-size: 0.8em; color: #666;">
+                        Depth: {{ depth }} | 
+                        {% if depth < 3 %}
+                        <button onclick="loadReplies({{ message.id }})" style="background: none; border: none; color: #007bff; text-decoration: underline;">
+                            View Replies ({{ message.direct_reply_count }})
+                        </button>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <!-- Reply form for this message -->
+                <div id="reply-form-{{ message.id }}" class="reply-form" style="display: none;">
+                    <textarea id="reply-content-{{ message.id }}" placeholder="Type your reply..."></textarea>
+                    <button onclick="submitReply({{ message.id }})">Send Reply</button>
+                    <button onclick="hideReplyForm({{ message.id }})">Cancel</button>
+                </div>
+                
+                <!-- Container for dynamic replies -->
+                <div id="replies-{{ message.id }}"></div>
+            </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    
+    <!-- Form for replying to thread starter -->
+    <div class="reply-form">
+        <h3>Reply to Thread</h3>
+        <textarea id="thread-reply-content" placeholder="Type your reply to the main thread..."></textarea>
+        <button onclick="submitReply({{ thread_starter.id }})">Send Reply</button>
+    </div>
+
+    <script>
+        function showReplyForm(messageId) {
+            document.getElementById('reply-form-' + messageId).style.display = 'block';
+        }
+        
+        function hideReplyForm(messageId) {
+            document.getElementById('reply-form-' + messageId).style.display = 'none';
+        }
+        
+        function submitReply(parentMessageId) {
+            const contentField = document.getElementById('reply-content-' + parentMessageId) || 
+                               document.getElementById('thread-reply-content');
+            const content = contentField.value.trim();
+            
+            if (!content) {
+                alert('Please enter a message');
+                return;
+            }
+            
+            fetch(`/messaging/reply/${parentMessageId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    content: content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    contentField.value = '';
+                    hideReplyForm(parentMessageId);
+                    location.reload(); // Simple reload for demo
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error);
+            });
+        }
+        
+        function loadReplies(messageId) {
+            fetch(`/messaging/thread/${messageId}/replies/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayReplies(messageId, data.replies);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading replies:', error);
+            });
+        }
+        
+        function displayReplies(parentId, replies) {
+            const container = document.getElementById('replies-' + parentId);
+            if (replies.length === 0) {
+                container.innerHTML = '<p style="color: #666; font-style: italic;">No replies yet.</p>';
+                return;
+            }
+            
+            let html = '';
+            replies.forEach(reply => {
+                html += `
+                    <div class="message reply depth-${reply.thread_depth}" 
+                         style="margin-left: ${reply.thread_depth * 30}px">
+                        <div class="message-header">
+                            <span class="sender">${reply.sender.username}</span>
+                            <span class="timestamp">${new Date(reply.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div class="message-content">${reply.content}</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
