@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Message Inbox</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .unread { border-left: 4px solid #ffc107; background: #fff3cd; }
+        .message { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .message-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+        .sender { font-weight: bold; }
+        .timestamp { color: #666; font-size: 0.8em; }
+        .unread-badge { background: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7em; }
+        .stats { background: #e9ecef; padding: 10px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Message Inbox</h1>
+    
+    <div class="stats">
+        <h3>Inbox Statistics</h3>
+        <p>Total Unread Messages: <strong>{{ unread_count }}</strong></p>
+        <p>Total Messages: <strong>{{ all_messages.count }}</strong></p>
+        <a href="{% url 'unread_inbox' %}">View Only Unread Messages</a>
+    </div>
+    
+    <div id="messages-list">
+        <h3>Unread Messages ({{ unread_messages.count }})</h3>
+        
+        {% for message in unread_messages %}
+        <div class="message unread">
+            <div class="message-header">
+                <span class="sender">From: {{ message.sender.username }} <span class="unread-badge">UNREAD</span></span>
+                <span class="timestamp">{{ message.timestamp|date:"M d, Y H:i" }}</span>
+            </div>
+            <div class="message-content">
+                {{ message.content }}
+            </div>
+        </div>
+        {% empty %}
+        <p>No unread messages! 🎉</p>
+        {% endfor %}
+        
+        <h3>All Messages</h3>
+        
+        {% for message in all_messages %}
+        <div class="message {% if not message.read %}unread{% endif %}">
+            <div class="message-header">
+                <span class="sender">
+                    From: {{ message.sender.username }}
+                    {% if not message.read %}<span class="unread-badge">UNREAD</span>{% endif %}
+                </span>
+                <span class="timestamp">{{ message.timestamp|date:"M d, Y H:i" }}</span>
+            </div>
+            <div class="message-content">
+                {{ message.content }}
+            </div>
+        </div>
+        {% empty %}
+        <p>No messages yet.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>
