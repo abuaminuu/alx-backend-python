@@ -53,7 +53,7 @@ class MessageHistory(models.Model):
     
     def __str__(self):
         return f"History for Message {self.message.id} - {self.edited_at}"
-        
+
 
 class Notification(models.Model):
     """
@@ -98,4 +98,92 @@ class Notification(models.Model):
         """Mark notification as read"""
         self.is_read = True
         self.save()
+
+
+class Message(models.Model):
+    """
+    Enhanced Message model with threaded conversation support
+    """
+    sender = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='sent_messages'
+    )
+    receiver = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='received_messages'
+    )
+    content = models.TextField()
+    timestamp = models.DateTimeField(default=timezone.now)
+    is_read = models.BooleanField(default=False)
+    
+    # FIX: Add parent_message field (self-referential foreign key)
+    parent_message = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        related_name='replies',
+        null=True,
+        blank=True,
+        verbose_name='Parent Message'
+    )
+    
+    # Additional fields for threading
+    thread_depth = models.PositiveIntegerField(default=0)
+    is_thread_starter = models.BooleanField(default=True)
+    
+    class Meta:
+        ordering = ['thread_depth', 'timestamp']
+        indexes = [
+            models.Index(fields=['receiver', 'timestamp']),
+            models.Index(fields=['sender', 'timestamp']),
+            models.Index(fields=['parent_message', 'timestamp']),
+            models.Index(fields=['thread_depth', 'timestamp']),
+        ]
+    
+    def __str__(self):
+        if self.parent_message:
+            return f"Reply from {self.sender} to {self.parent_message.sender}'s message"
+        return f"Message from {self.sender} to {self.receiver} at {self.timestamp}"
+    
+    def save(self, *args, **kwargs):
+        """Override save to handle thread depth calculation"""
+        if self.parent_message:
+            self.thread_depth = self.parent_message.thread_depth + 1
+            self.is_thread_starter = False
+            self.receiver = self.parent_message.sender
+        else:
+            self.thread_depth = 0
+            self.is_thread_starter = True
         
+        super().save(*args, **kwargs)
+    
+    def get_thread_replies(self, include_self=True):
+        """
+        Get all replies in this thread using recursive-like query
+        """
+        if include_self:
+            base_query = Message.objects.filter(
+                Q(id=self.id) | 
+                Q(parent_message=self) |
+                Q(parent_message__parent_message=self) |
+                Q(parent_message__parent_message__parent_message=self)
+            )
+        else:
+            base_query = Message.objects.filter(
+                Q(parent_message=self) |
+                Q(parent_message__parent_message=self) |
+                Q(parent_message__parent_message__parent_message=self)
+            )
+        
+        return base_query.select_related('sender', 'receiver', 'parent_message')
+    
+    @property
+    def reply_count(self):
+        return self.replies.count()
+    
+    @property
+    def direct_reply_count(self):
+        return self.replies.filter(thread_depth=self.thread_depth + 1).count()
+
+# Keep existing Notification and other models...

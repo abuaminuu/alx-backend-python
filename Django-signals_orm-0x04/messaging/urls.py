@@ -13,4 +13,5 @@ urlpatterns = [
     path('threads/<int:thread_id>/', views.thread_detail, name='thread_detail'),
     path('reply/<int:parent_message_id>/', views.create_reply, name='create_reply'),
     path('thread/<int:message_id>/replies/', views.get_thread_replies, name='get_replies'),
+    path('thread/<int:message_id>/recursive/', views.get_recursive_thread, name='get_recursive_thread'),  # NEW
 ]

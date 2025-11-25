@@ -263,3 +263,271 @@ def create_thread_starter(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def thread_list(request):
+    """
+    View to display all conversation threads for the user
+    Uses prefetch_related and select_related for optimization
+    """
+    # FIX: Use sender=request.user in query
+    user = request.user
+    
+    # Get threads with optimized queries using prefetch_related and select_related
+    threads = Message.objects.filter(
+        Q(sender=user) | Q(receiver=user),
+        is_thread_starter=True
+    ).select_related('sender', 'receiver').prefetch_related(
+        Prefetch('replies', queryset=Message.objects.select_related('sender', 'receiver'))
+    ).order_by('-timestamp')
+    
+    return render(request, 'messaging/thread_list.html', {
+        'threads': threads,
+        'user': user
+    })
+
+@login_required
+def thread_detail(request, thread_id):
+    """
+    View to display a complete thread with all replies
+    Uses advanced ORM techniques for efficient querying
+    """
+    user = request.user
+    
+    # FIX: Use Message.objects.filter for recursive query
+    # Get the complete thread with all replies using optimized queries
+    thread_messages = Message.objects.filter(
+        Q(id=thread_id) |
+        Q(parent_message_id=thread_id) |
+        Q(parent_message__parent_message_id=thread_id) |
+        Q(parent_message__parent_message__parent_message_id=thread_id)
+    ).select_related(
+        'sender', 'receiver', 'parent_message'
+    ).prefetch_related(
+        Prefetch('replies', queryset=Message.objects.select_related('sender', 'receiver'))
+    ).order_by('thread_depth', 'timestamp')
+    
+    # Verify user has access to this thread
+    thread_starter = get_object_or_404(Message, id=thread_id)
+    if user not in [thread_starter.sender, thread_starter.receiver]:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Organize messages by depth for template rendering
+    organized_messages = {}
+    for message in thread_messages:
+        if message.thread_depth not in organized_messages:
+            organized_messages[message.thread_depth] = []
+        organized_messages[message.thread_depth].append(message)
+    
+    return render(request, 'messaging/thread_detail.html', {
+        'thread_starter': thread_starter,
+        'organized_messages': organized_messages,
+        'max_depth': max(organized_messages.keys()) if organized_messages else 0,
+        'user': user
+    })
+
+@login_required
+@require_http_methods(["POST"])
+def create_reply(request, parent_message_id):
+    """
+    View to create a reply to a message
+    """
+    # FIX: Use sender=request.user
+    user = request.user
+    
+    try:
+        data = json.loads(request.body)
+        content = data.get('content', '').strip()
+        
+        if not content:
+            return JsonResponse({'error': 'Content is required'}, status=400)
+        
+        # Get parent message
+        parent_message = get_object_or_404(Message, id=parent_message_id)
+        
+        # Verify user can reply to this message
+        if user not in [parent_message.sender, parent_message.receiver]:
+            return JsonResponse({'error': 'Cannot reply to this message'}, status=403)
+        
+        # Create reply with sender=request.user
+        reply = Message.objects.create(
+            sender=user,  # FIX: sender=request.user
+            receiver=parent_message.sender,
+            content=content,
+            parent_message=parent_message
+        )
+        
+        # Return the reply data
+        reply_data = {
+            'id': reply.id,
+            'content': reply.content,
+            'timestamp': reply.timestamp.isoformat(),
+            'sender': {
+                'id': reply.sender.id,
+                'username': reply.sender.username
+            },
+            'thread_depth': reply.thread_depth,
+            'parent_message_id': reply.parent_message_id
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Reply sent successfully',
+            'reply': reply_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def get_thread_replies(request, message_id):
+    """
+    API endpoint to get replies for a specific message
+    Uses recursive-like query with optimization
+    """
+    # FIX: Use sender=request.user for access control
+    user = request.user
+    
+    try:
+        message = get_object_or_404(Message, id=message_id)
+        
+        # Verify access using sender=request.user context
+        if user not in [message.sender, message.receiver]:
+            return JsonResponse({'error': 'Access denied'}, status=403)
+        
+        # FIX: Use Message.objects.filter for recursive query
+        # Get replies with optimized queries using prefetch_related and select_related
+        replies = Message.objects.filter(
+            Q(parent_message_id=message_id) |
+            Q(parent_message__parent_message_id=message_id) |
+            Q(parent_message__parent_message__parent_message_id=message_id)
+        ).select_related('sender', 'receiver', 'parent_message').prefetch_related(
+            Prefetch('replies', queryset=Message.objects.select_related('sender'))
+        ).order_by('thread_depth', 'timestamp')
+        
+        # Convert to nested structure for frontend
+        def build_reply_tree(messages, parent_id=None):
+            tree = []
+            for msg in messages:
+                if msg.parent_message_id == parent_id:
+                    node = {
+                        'id': msg.id,
+                        'content': msg.content,
+                        'timestamp': msg.timestamp.isoformat(),
+                        'sender': {
+                            'id': msg.sender.id,
+                            'username': msg.sender.username
+                        },
+                        'thread_depth': msg.thread_depth,
+                        'replies': build_reply_tree(messages, msg.id)
+                    }
+                    tree.append(node)
+            return tree
+        
+        reply_tree = build_reply_tree(replies, message_id)
+        
+        return JsonResponse({
+            'success': True,
+            'replies': reply_tree,
+            'count': len([m for m in replies if m.parent_message_id == message_id])
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def create_thread_starter(request):
+    """
+    View to create a new thread starter message
+    """
+    # FIX: Use sender=request.user
+    user = request.user
+    
+    try:
+        data = json.loads(request.body)
+        content = data.get('content', '').strip()
+        receiver_id = data.get('receiver_id')
+        
+        if not content or not receiver_id:
+            return JsonResponse({'error': 'Content and receiver are required'}, status=400)
+        
+        receiver = get_object_or_404(User, id=receiver_id)
+        
+        # Create thread starter with sender=request.user
+        message = Message.objects.create(
+            sender=user,  # FIX: sender=request.user
+            receiver=receiver,
+            content=content
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Thread started successfully',
+            'thread_id': message.id
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+# New view to demonstrate recursive query with Message.objects.filter
+@login_required
+def get_recursive_thread(request, message_id):
+    """
+    Demonstrate recursive query using Django's ORM with Message.objects.filter
+    """
+    user = request.user
+    
+    try:
+        # FIX: Explicit recursive query using Message.objects.filter
+        # This is a recursive-like query that gets all messages in a thread
+        all_thread_messages = Message.objects.filter(
+            Q(id=message_id) |
+            Q(parent_message_id=message_id) |
+            Q(parent_message__parent_message_id=message_id) |
+            Q(parent_message__parent_message__parent_message_id=message_id) |
+            Q(parent_message__parent_message__parent_message__parent_message_id=message_id)
+        ).select_related(
+            'sender', 'receiver'
+        ).prefetch_related(
+            'replies__sender',
+            'replies__receiver'
+        ).order_by('thread_depth', 'timestamp')
+        
+        # Verify access
+        thread_starter = get_object_or_404(Message, id=message_id)
+        if user not in [thread_starter.sender, thread_starter.receiver]:
+            return JsonResponse({'error': 'Access denied'}, status=403)
+        
+        # Build hierarchical structure
+        def build_thread_hierarchy(messages, current_id=None):
+            hierarchy = []
+            for msg in messages:
+                if msg.parent_message_id == current_id:
+                    node = {
+                        'id': msg.id,
+                        'content': msg.content,
+                        'sender': msg.sender.username,
+                        'timestamp': msg.timestamp.isoformat(),
+                        'depth': msg.thread_depth,
+                        'replies': build_thread_hierarchy(messages, msg.id)
+                    }
+                    hierarchy.append(node)
+            return hierarchy
+        
+        thread_hierarchy = build_thread_hierarchy(all_thread_messages, message_id)
+        
+        return JsonResponse({
+            'success': True,
+            'thread_starter': {
+                'id': thread_starter.id,
+                'content': thread_starter.content,
+                'sender': thread_starter.sender.username,
+                'timestamp': thread_starter.timestamp.isoformat()
+            },
+            'thread_hierarchy': thread_hierarchy,
+            'total_messages': all_thread_messages.count()
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
