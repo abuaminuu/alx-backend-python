@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unread Messages</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .unread-message { border: 2px solid #ffc107; background: #fff3cd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .sender { font-weight: bold; color: #856404; }
+        .timestamp { color: #666; font-size: 0.8em; }
+        .message-content { margin: 10px 0; color: #333; }
+        .message-actions { margin-top: 10px; }
+        .btn { padding: 5px 10px; margin: 2px; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em; }
+        .btn-mark-read { background: #28a745; color: white; }
+        .btn-view-thread { background: #007bff; color: white; }
+        .stats { background: #e9ecef; padding: 10px; border-radius: 5px; margin: 20px 0; }
+        .unread-thread { border: 1px solid #ddd; margin: 10px 0; padding: 10px; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>Unread Messages</h1>
+    
+    <div class="stats">
+        <h3>Unread Statistics</h3>
+        <p>Total Unread Messages: <strong>{{ unread_count }}</strong></p>
+        <p>Threads with Unread Messages: <strong>{{ unread_threads.count }}</strong></p>
+        <button onclick="markAllAsRead()" class="btn btn-mark-read">Mark All as Read</button>
+    </div>
+    
+    <div id="unread-messages-list">
+        <h3>Unread Messages ({{ unread_messages.count }})</h3>
+        
+        {% for message in unread_messages %}
+        <div class="unread-message" data-message-id="{{ message.id }}">
+            <div class="message-header">
+                <span class="sender">From: {{ message.sender.username }}</span>
+                <span class="timestamp">{{ message.timestamp|date:"M d, Y H:i" }}</span>
+            </div>
+            <div class="message-content">
+                {{ message.content }}
+            </div>
+            <div class="message-actions">
+                <button onclick="markAsRead({{ message.id }})" class="btn btn-mark-read">Mark as Read</button>
+                {% if message.is_thread_starter %}
+                <button onclick="viewThread({{ message.id }})" class="btn btn-view-thread">View Thread</button>
+                {% elif message.parent_message %}
+                <button onclick="viewThread({{ message.parent_message_id }})" class="btn btn-view-thread">View Thread</button>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <p>No unread messages! 🎉</p>
+        {% endfor %}
+    </div>
+    
+    <div id="unread-threads">
+        <h3>Threads with Unread Messages</h3>
+        
+        {% for thread in unread_threads %}
+        <div class="unread-thread">
+            <div class="message-header">
+                <span class="sender">
+                    {% if thread.sender == user %}
+                    Conversation with {{ thread.receiver.username }}
+                    {% else %}
+                    Conversation with {{ thread.sender.username }}
+                    {% endif %}
+                </span>
+                <span class="timestamp">{{ thread.timestamp|date:"M d, Y H:i" }}</span>
+            </div>
+            <div class="message-content">
+                {{ thread.content|truncatewords:20 }}
+            </div>
+            <div class="message-actions">
+                <button onclick="viewThread({{ thread.id }})" class="btn btn-view-thread">View Thread</button>
+                <button onclick="markThreadAsRead({{ thread.id }})" class="btn btn-mark-read">Mark Thread as Read</button>
+            </div>
+        </div>
+        {% empty %}
+        <p>No threads with unread messages.</p>
+        {% endfor %}
+    </div>
+
+    <script>
+        function markAsRead(messageId) {
+            fetch(`/messaging/mark-read/${messageId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the message from the list
+                    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.remove();
+                    }
+                    updateUnreadCount();
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error);
+            });
+        }
+        
+        function markAllAsRead() {
+            if (!confirm('Mark all messages as read?')) return;
+            
+            fetch('/messaging/mark-read/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    message_ids: [] // Empty array means mark all
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Marked ${data.updated_count} messages as read`);
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error);
+            });
+        }
+        
+        function markThreadAsRead(threadId) {
+            // Get all message IDs in this thread and mark them as read
+            fetch(`/messaging/thread/${threadId}/recursive/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const messageIds = getAllMessageIds(data.thread_hierarchy);
+                    return fetch('/messaging/mark-read/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({
+                            message_ids: messageIds
+                        })
+                    });
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(`Marked ${data.updated_count} messages as read`);
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error);
+            });
+        }
+        
+        function getAllMessageIds(threadHierarchy) {
+            const messageIds = [];
+            
+            function traverse(messages) {
+                messages.forEach(message => {
+                    messageIds.push(message.id);
+                    if (message.replies && message.replies.length > 0) {
+                        traverse(message.replies);
+                    }
+                });
+            }
+            
+            traverse(threadHierarchy);
+            return messageIds;
+        }
+        
+        function viewThread(threadId) {
+            window.location.href = `/messaging/threads/${threadId}/`;
+        }
+        
+        function updateUnreadCount() {
+            // You could implement a live update of the unread count
+            fetch('/messaging/unread/api/')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.querySelector('.stats strong').textContent = data.unread_count;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

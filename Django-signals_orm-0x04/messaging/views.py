@@ -531,3 +531,199 @@ def get_recursive_thread(request, message_id):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def unread_messages_inbox(request):
+    """
+    View to display only unread messages using the custom manager
+    Uses .only() optimization to retrieve only necessary fields
+    """
+    user = request.user
+    
+    # FIX: Use custom manager to get unread messages with optimization
+    unread_messages = Message.unread_messages.for_user(user)
+    
+    # Get unread count using the custom manager
+    unread_count = Message.unread_messages.unread_count_for_user(user)
+    
+    # Get unread threads using custom manager
+    unread_threads = Message.unread_messages.get_unread_threads(user)
+    
+    return render(request, 'messaging/unread_inbox.html', {
+        'unread_messages': unread_messages,
+        'unread_count': unread_count,
+        'unread_threads': unread_threads,
+        'user': user
+    })
+
+@login_required
+def unread_messages_api(request):
+    """
+    API endpoint to get unread messages using custom manager
+    """
+    user = request.user
+    
+    try:
+        # FIX: Use custom manager with optimization
+        unread_messages = Message.unread_messages.for_user(user)
+        
+        # Convert to JSON format with only necessary data
+        messages_data = []
+        for message in unread_messages:
+            messages_data.append({
+                'id': message.id,
+                'content': message.content,
+                'timestamp': message.timestamp.isoformat(),
+                'sender': {
+                    'id': message.sender.id,
+                    'username': message.sender.username
+                },
+                'thread_depth': message.thread_depth,
+                'is_thread_starter': message.is_thread_starter,
+                'parent_message_id': message.parent_message_id
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'unread_count': len(messages_data),
+            'messages': messages_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def mark_messages_read(request):
+    """
+    View to mark messages as read using custom manager
+    """
+    user = request.user
+    
+    try:
+        data = json.loads(request.body)
+        message_ids = data.get('message_ids', [])
+        
+        # FIX: Use custom manager to mark messages as read
+        if message_ids:
+            # Mark specific messages as read
+            updated_count = Message.unread_messages.mark_as_read(user, message_ids)
+        else:
+            # Mark all unread messages as read
+            updated_count = Message.unread_messages.mark_as_read(user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Marked {updated_count} messages as read',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def mark_single_message_read(request, message_id):
+    """
+    View to mark a single message as read
+    """
+    user = request.user
+    
+    try:
+        # Get the message and verify ownership
+        message = get_object_or_404(Message, id=message_id, receiver=user)
+        
+        # Use custom manager or instance method
+        if hasattr(Message.unread_messages, 'mark_as_read'):
+            # Use custom manager for bulk operation pattern
+            updated_count = Message.unread_messages.mark_as_read(user, [message_id])
+        else:
+            # Use instance method
+            message.mark_as_read()
+            updated_count = 1
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Message marked as read',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def unread_threads_api(request):
+    """
+    API endpoint to get threads with unread messages using custom manager
+    """
+    user = request.user
+    
+    try:
+        # FIX: Use custom manager to get unread threads
+        unread_threads = Message.unread_messages.get_unread_threads(user)
+        
+        threads_data = []
+        for thread in unread_threads:
+            # Count unread messages in this thread
+            unread_in_thread = Message.unread_messages.filter(
+                Q(id=thread.id) |
+                Q(parent_message=thread) |
+                Q(parent_message__parent_message=thread),
+                receiver=user
+            ).count()
+            
+            threads_data.append({
+                'id': thread.id,
+                'content': thread.content,
+                'timestamp': thread.timestamp.isoformat(),
+                'sender': {
+                    'id': thread.sender.id,
+                    'username': thread.sender.username
+                },
+                'receiver': {
+                    'id': thread.receiver.id,
+                    'username': thread.receiver.username
+                },
+                'unread_count': unread_in_thread,
+                'total_replies': thread.reply_count
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'threads': threads_data,
+            'total_unread_threads': len(threads_data)
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+# Existing views with read field updates
+@login_required
+def thread_list(request):
+    """
+    Updated thread list to show read status
+    """
+    user = request.user
+    
+    # Get threads with read status information
+    threads = Message.objects.filter(
+        Q(sender=user) | Q(receiver=user),
+        is_thread_starter=True
+    ).select_related('sender', 'receiver').prefetch_related(
+        Prefetch('replies', queryset=Message.objects.select_related('sender'))
+    ).only(
+        'id', 'content', 'timestamp', 'read', 'sender__username', 'receiver__username'
+    ).order_by('-timestamp')
+    
+    # Add unread counts to each thread
+    for thread in threads:
+        thread.unread_replies_count = Message.unread_messages.filter(
+            Q(parent_message=thread) |
+            Q(parent_message__parent_message=thread),
+            receiver=user
+        ).count()
+    
+    return render(request, 'messaging/thread_list.html', {
+        'threads': threads,
+        'user': user
+    })
