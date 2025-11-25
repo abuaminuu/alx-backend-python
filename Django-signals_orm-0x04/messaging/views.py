@@ -1,3 +1,13 @@
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.cache import cache_page
+from django.db.models import Q, Prefetch
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views import View
+
+from .models import Message, User
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
@@ -925,4 +935,353 @@ def thread_list(request):
     return render(request, 'messaging/thread_list.html', {
         'threads': threads,
         'user': user
+    })
+
+
+
+# Cache the thread list view for 60 seconds
+@login_required
+@cache_page(60)  # 60 seconds cache timeout
+def thread_list(request):
+    """
+    View to display all conversation threads for the user
+    Now cached for 60 seconds
+    """
+    user = request.user
+    
+    # Get threads with optimized queries
+    threads = Message.objects.filter(
+        Q(sender=user) | Q(receiver=user),
+        is_thread_starter=True
+    ).select_related('sender', 'receiver').prefetch_related(
+        Prefetch('replies', queryset=Message.objects.select_related('sender'))
+    ).order_by('-timestamp')
+    
+    # Add unread counts to each thread
+    for thread in threads:
+        thread.unread_count = Message.unread.filter(
+            Q(parent_message=thread) |
+            Q(parent_message__parent_message=thread),
+            receiver=user
+        ).count()
+    
+    return render(request, 'messaging/thread_list.html', {
+        'threads': threads,
+        'user': user
+    })
+
+# Cache the thread detail view for 60 seconds
+@login_required
+@cache_page(60)  # 60 seconds cache timeout
+def thread_detail(request, thread_id):
+    """
+    View to display a complete thread with all replies
+    Now cached for 60 seconds
+    """
+    user = request.user
+    
+    # Get the complete thread with all replies using optimized queries
+    thread_messages = Message.objects.filter(
+        Q(id=thread_id) |
+        Q(parent_message_id=thread_id) |
+        Q(parent_message__parent_message_id=thread_id) |
+        Q(parent_message__parent_message__parent_message_id=thread_id)
+    ).select_related(
+        'sender', 'receiver', 'parent_message'
+    ).prefetch_related(
+        Prefetch('replies', queryset=Message.objects.select_related('sender', 'receiver'))
+    ).order_by('thread_depth', 'timestamp')
+    
+    # Verify user has access to this thread
+    thread_starter = get_object_or_404(Message, id=thread_id)
+    if user not in [thread_starter.sender, thread_starter.receiver]:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Organize messages by depth for template rendering
+    organized_messages = {}
+    for message in thread_messages:
+        if message.thread_depth not in organized_messages:
+            organized_messages[message.thread_depth] = []
+        organized_messages[message.thread_depth].append(message)
+    
+    return render(request, 'messaging/thread_detail.html', {
+        'thread_starter': thread_starter,
+        'organized_messages': organized_messages,
+        'max_depth': max(organized_messages.keys()) if organized_messages else 0,
+        'user': user
+    })
+
+# Cache the unread messages inbox for 60 seconds
+@login_required
+@cache_page(60)  # 60 seconds cache timeout
+def unread_messages_inbox(request):
+    """
+    View to display only unread messages using the custom manager
+    Now cached for 60 seconds
+    """
+    user = request.user
+    
+    # Use custom manager to get unread messages with optimization
+    unread_messages = Message.unread.unread_for_user(user)
+    
+    # Get unread count using the custom manager
+    unread_count = Message.unread.unread_count_for_user(user)
+    
+    return render(request, 'messaging/unread_inbox.html', {
+        'unread_messages': unread_messages,
+        'unread_count': unread_count,
+        'user': user
+    })
+
+# Cache the main inbox view for 60 seconds
+@login_required
+@cache_page(60)  # 60 seconds cache timeout
+def user_inbox(request):
+    """
+    Main inbox view that shows both read and unread messages
+    Now cached for 60 seconds
+    """
+    user = request.user
+    
+    # Use Message.unread.unread_for_user for unread messages
+    unread_messages = Message.unread.unread_for_user(user)
+    
+    # Use default manager for all messages
+    all_messages = Message.objects.filter(
+        Q(sender=user) | Q(receiver=user)
+    ).select_related('sender', 'receiver').order_by('-timestamp')[:50]
+    
+    # Get unread count using custom manager
+    unread_count = Message.unread.unread_count_for_user(user)
+    
+    return render(request, 'messaging/inbox.html', {
+        'unread_messages': unread_messages,
+        'all_messages': all_messages,
+        'unread_count': unread_count,
+        'user': user
+    })
+
+# Class-based view with caching
+@method_decorator(login_required, name='dispatch')
+@method_decorator(cache_page(60), name='dispatch')  # 60 seconds cache timeout
+class CachedThreadListView(View):
+    """
+    Class-based view for thread list with caching
+    """
+    
+    def get(self, request):
+        user = request.user
+        
+        threads = Message.objects.filter(
+            Q(sender=user) | Q(receiver=user),
+            is_thread_starter=True
+        ).select_related('sender', 'receiver').order_by('-timestamp')
+        
+        return render(request, 'messaging/thread_list.html', {
+            'threads': threads,
+            'user': user
+        })
+
+# Views that should NOT be cached (dynamic content)
+@login_required
+def unread_messages_api(request):
+    """
+    API endpoint to get unread messages - NOT cached because it's dynamic
+    """
+    user = request.user
+    
+    try:
+        unread_messages = Message.unread.unread_for_user(user)
+        
+        messages_data = []
+        for message in unread_messages:
+            messages_data.append({
+                'id': message.id,
+                'content': message.content,
+                'timestamp': message.timestamp.isoformat(),
+                'sender': {
+                    'id': message.sender.id,
+                    'username': message.sender.username
+                },
+                'thread_depth': message.thread_depth,
+                'is_thread_starter': message.is_thread_starter,
+                'parent_message_id': message.parent_message_id
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'unread_count': len(messages_data),
+            'messages': messages_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def create_reply(request, parent_message_id):
+    """
+    View to create a reply to a message - NOT cached because it modifies data
+    """
+    user = request.user
+    
+    try:
+        data = json.loads(request.body)
+        content = data.get('content', '').strip()
+        
+        if not content:
+            return JsonResponse({'error': 'Content is required'}, status=400)
+        
+        parent_message = get_object_or_404(Message, id=parent_message_id)
+        
+        if user not in [parent_message.sender, parent_message.receiver]:
+            return JsonResponse({'error': 'Cannot reply to this message'}, status=403)
+        
+        # Create reply
+        reply = Message.objects.create(
+            sender=user,
+            receiver=parent_message.sender,
+            content=content,
+            parent_message=parent_message
+        )
+        
+        # Clear cache for the thread detail view since we added a new message
+        cache_key = f'thread_detail_{parent_message_id}_{user.id}'
+        cache.delete(cache_key)
+        
+        reply_data = {
+            'id': reply.id,
+            'content': reply.content,
+            'timestamp': reply.timestamp.isoformat(),
+            'sender': {
+                'id': reply.sender.id,
+                'username': reply.sender.username
+            },
+            'thread_depth': reply.thread_depth,
+            'parent_message_id': reply.parent_message_id
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Reply sent successfully',
+            'reply': reply_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def mark_messages_read(request):
+    """
+    View to mark messages as read - NOT cached because it modifies data
+    """
+    user = request.user
+    
+    try:
+        data = json.loads(request.body)
+        message_ids = data.get('message_ids', [])
+        
+        if message_ids:
+            updated_count = Message.unread.mark_as_read_for_user(user, message_ids)
+        else:
+            updated_count = Message.unread.mark_as_read_for_user(user)
+        
+        # Clear relevant caches since read status changed
+        cache.clear()  # Simple approach: clear all cache
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Marked {updated_count} messages as read',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+# Advanced caching with manual cache control
+@login_required
+def cached_thread_detail_advanced(request, thread_id):
+    """
+    Advanced caching implementation with manual cache control
+    """
+    user = request.user
+    cache_key = f'thread_detail_{thread_id}_{user.id}'
+    
+    # Try to get from cache first
+    cached_response = cache.get(cache_key)
+    if cached_response:
+        print("Serving from cache!")
+        return cached_response
+    
+    # Verify user has access to this thread
+    thread_starter = get_object_or_404(Message, id=thread_id)
+    if user not in [thread_starter.sender, thread_starter.receiver]:
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Get the complete thread with all replies
+    thread_messages = Message.objects.filter(
+        Q(id=thread_id) |
+        Q(parent_message_id=thread_id) |
+        Q(parent_message__parent_message_id=thread_id)
+    ).select_related('sender', 'receiver', 'parent_message').order_by('thread_depth', 'timestamp')
+    
+    # Organize messages by depth
+    organized_messages = {}
+    for message in thread_messages:
+        if message.thread_depth not in organized_messages:
+            organized_messages[message.thread_depth] = []
+        organized_messages[message.thread_depth].append(message)
+    
+    # Render the response
+    response = render(request, 'messaging/thread_detail.html', {
+        'thread_starter': thread_starter,
+        'organized_messages': organized_messages,
+        'max_depth': max(organized_messages.keys()) if organized_messages else 0,
+        'user': user
+    })
+    
+    # Store in cache for 60 seconds
+    cache.set(cache_key, response, 60)
+    print("Stored in cache!")
+    
+    return response
+
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import JsonResponse
+from django.core.cache import cache
+
+@login_required
+@user_passes_test(lambda u: u.is_staff)  # Only staff can clear cache
+
+def clear_cache_view(request):
+    """
+    View to clear the cache (for staff users only)
+    """
+    try:
+        cache.clear()
+        return JsonResponse({
+            'success': True,
+            'message': 'Cache cleared successfully'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error clearing cache: {str(e)}'
+        }, status=500)
+
+@login_required
+def cache_info_view(request):
+    """
+    View to display cache information
+    """
+    cache_info = {
+        'cache_backend': str(cache.__class__),
+        'cache_location': getattr(cache, '_cache', 'Not available'),
+        'default_timeout': 60,
+    }
+    
+    return JsonResponse({
+        'success': True,
+        'cache_info': cache_info
     })

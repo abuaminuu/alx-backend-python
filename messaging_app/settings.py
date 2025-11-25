@@ -68,6 +68,15 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',  # Optional: enable ordering
 }
 
+# config cahche
+CACHES = { 'default': 
+    { 
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake', 
+    }
+}
+
+
 # JWT Settings
 from datetime import timedelta
 
