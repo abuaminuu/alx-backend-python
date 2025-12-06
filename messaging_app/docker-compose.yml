@@ -53,15 +53,19 @@ services:
     networks:
       - messaging_network
 
-volumes:
-  mysql_data:
-    driver: local
-  static_volume:
-    driver: local
-  media_volume:
-    driver: local
+  # Volume for persisting MySQL data
 
-networks:
-  messaging_network:
-    driver: bridge
+  volumes:
+    mysql_data:
+      driver: local
+    static_volume:
+      driver: local
+    media_volume:
+      driver: local
+    # - mysql_data:/var/lib/mysql  # Named volume for database persistence
+    # - ./mysql-init:/docker-entrypoint-initdb.d:ro  # Initialization scripts
+
+  networks:
+    messaging_network:
+      driver: bridge
 
