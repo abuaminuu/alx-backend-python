@@ -7,7 +7,7 @@ services:
     container_name: messaging_db
     restart: always
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-messaging_db}
+      MYSQL_DB: ${MYSQL_DB:-messaging_db}           # Changed from MYSQL_DATABASE
       MYSQL_USER: ${MYSQL_USER:-messaging_user}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-messaging_password}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
@@ -35,7 +35,7 @@ services:
       - DEBUG=${DEBUG:-False}
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-here}
       - DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      - MYSQL_DATABASE=${MYSQL_DATABASE:-messaging_db}
+      - MYSQL_DB=${MYSQL_DB:-messaging_db}           # Changed from MYSQL_DATABASE
       - MYSQL_USER=${MYSQL_USER:-messaging_user}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-messaging_password}
       - MYSQL_HOST=db
@@ -53,24 +53,6 @@ services:
     networks:
       - messaging_network
 
-# Optional: Add Nginx for production
-  nginx:
-    image: nginx:alpine
-    container_name: messaging_nginx
-    restart: always
-    depends_on:
-      - web
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - static_volume:/app/static
-      - media_volume:/app/media
-      - ./ssl:/etc/nginx/ssl:ro
-    networks:
-      - messaging_network
-
 volumes:
   mysql_data:
     driver: local
@@ -82,3 +64,4 @@ volumes:
 networks:
   messaging_network:
     driver: bridge
+
