@@ -44,6 +44,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
 ]
 
+
+
+
 # configure DRF to use authentication and permission classes
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -58,7 +61,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
         # Add other permission classes as needed
-          
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -66,6 +68,7 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',  # Enable filtering
         'rest_framework.filters.SearchFilter',  # Optional: enable search
         'rest_framework.filters.OrderingFilter',  # Optional: enable ordering
+    ]
 }
 
 # JWT Settings
