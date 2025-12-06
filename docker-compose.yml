@@ -1,4 +1,4 @@
-# docker-compose.yml
+# docker-compose.yml - Fixed version
 version: '3.8'
 
 services:
@@ -18,15 +18,22 @@ services:
       - DJANGO_SETTINGS_MODULE=messaging_app.settings
       - MYSQL_HOST=db
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     command: >
-      sh -c "python manage.py wait_for_db &&
-             python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+      sh -c "python3 manage.py wait_for_db &&
+             python3 manage.py migrate &&
+             python3 manage.py runserver 0.0.0.0:8000"
     networks:
       - messaging_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # MySQL Database
+  # MySQL Database Service
   db:
     image: mysql:8.0
     container_name: messaging_app_db
@@ -36,7 +43,7 @@ services:
     env_file:
       - .env
     environment:
-      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_DATABASE=${MYSQL_DB}           # Changed from MYSQL_DATABASE to MYSQL_DB
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
@@ -53,6 +60,8 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       timeout: 20s
       retries: 10
+      interval: 30s
+      start_period: 30s
 
   # phpMyAdmin (Optional - for database management)
   phpmyadmin:
@@ -72,9 +81,11 @@ services:
 
 volumes:
   mysql_data:
+    driver: local
   static_volume:
+    driver: local
 
 networks:
   messaging_network:
     driver: bridge
-    
+  
