@@ -39,3 +39,10 @@ EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 # Once working, change to:
 # CMD ["sh", "-c", "python manage.py migrate && gunicorn messaging_app.wsgi:application --bind 0.0.0.0:8000 --workers 3"]
+
+
+echo "Mapping: Host port 8000 -> Container port 8000"
+docker run -d \
+  --name messaging-container \
+  -p 8000:8000 \  
+  messaging-app
