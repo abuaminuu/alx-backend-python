@@ -21,9 +21,7 @@ services:
       db:
         condition: service_healthy
     command: >
-      sh -c "python3 manage.py wait_for_db &&
-             python3 manage.py migrate &&
-             python3 manage.py runserver 0.0.0.0:8000"
+      sh -c "python3 manage.py runserver"
     networks:
       - messaging_network
     healthcheck:
@@ -87,5 +85,4 @@ volumes:
 
 networks:
   messaging_network:
-    driver: bridge
-  
+  driver: bridge
