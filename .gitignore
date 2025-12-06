@@ -1,0 +1,18 @@
+# .gitignore - Add these lines
+.env
+.env.*
+!.env.example
+
+# Docker
+*.db
+db.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+
