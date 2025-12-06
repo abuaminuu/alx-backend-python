@@ -43,7 +43,7 @@ services:
     environment:
       - MYSQL_DATABASE=${MYSQL_DB}           # Changed from MYSQL_DATABASE to MYSQL_DB
       - MYSQL_USER=${MYSQL_USER}
-      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      # - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
