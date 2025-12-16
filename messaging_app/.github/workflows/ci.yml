@@ -1,0 +1,54 @@
+# hello ci
+# .gitlab-ci.yml - Sample Pipeline for a Web App
+
+# 1. Define Stages (order of execution)
+stages:
+  - build
+  - test
+  - deploy
+
+# 2. Global Variables (optional, apply to all jobs)
+variables:
+  NODE_VERSION: "18.x"
+  APP_NAME: "my-web-app"
+
+# 3. Job: Build
+build_job:
+  stage: build
+  image: node:$NODE_VERSION # Use a specific Node.js Docker image
+  script:
+    - echo "Installing dependencies..."
+    - npm install
+    - echo "Building the application..."
+    - npm run build
+  artifacts: # Save build output for later stages
+    paths:
+      - dist/
+  only: # Run this job only on the main branch
+    - main
+
+# 4. Job: Test
+test_job:
+  stage: test
+  image: node:$NODE_VERSION
+  script:
+    - echo "Running unit tests..."
+    - npm install # Reinstall dependencies if not in artifacts
+    - npm test
+  needs: # Depends on the build job's artifacts (optional)
+    - build_job
+  when: on_success # Only run if build_job succeeds
+
+# 5. Job: Deploy (Example: Deploy to Staging)
+deploy_staging:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Simulating deployment to $CI_ENVIRONMENT_SLUG"
+  environment:
+    name: staging
+    url: https://staging.my-web-app.com
+  rules: # Run only for merge requests targeting 'main' or on 'main' branch pushes
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
