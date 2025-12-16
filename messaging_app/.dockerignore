@@ -155,3 +155,61 @@ docker-compose.yml
 
 # Database
 *.db
+
+######## update task 3 #########
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Django
+*.sqlite3
+*.log
+db.sqlite3
+
+# Coverage
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Testing
+test-reports/
+coverage-reports/
+.pytest_cache/
+.mypy_cache/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Documentation
+docs/_build/

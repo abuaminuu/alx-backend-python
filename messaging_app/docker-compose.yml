@@ -68,3 +68,123 @@ services:
   networks:
     messaging_network:
       driver: bridge
+
+######### UPDATE task 3 ##########
+version: '3.8'
+
+services:
+  app:
+    build: .
+    image: alx-travel-app:local
+    container_name: alx-travel-app
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=alx_travel_app.settings.local
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - DEBUG=True
+      - DATABASE_URL=mysql://root:password@db:3306/alx_travel
+      - REDIS_URL=redis://redis:6379/0
+      - CHAPA_SECRET_KEY=${CHAPA_SECRET_KEY}
+      - CHAPA_PUBLIC_KEY=${CHAPA_PUBLIC_KEY}
+    volumes:
+      - ./:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             python manage.py runserver 0.0.0.0:8000"
+    networks:
+      - alx-network
+
+  db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: alx_travel
+      MYSQL_USER: alx_user
+      MYSQL_PASSWORD: alx_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - alx-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - alx-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - static_volume:/static
+      - media_volume:/media
+    depends_on:
+      - app
+    networks:
+      - alx-network
+
+  celery:
+    build: .
+    container_name: celery-worker
+    command: celery -A alx_travel_app worker --loglevel=info
+    environment:
+      - DJANGO_SETTINGS_MODULE=alx_travel_app.settings.local
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - DATABASE_URL=mysql://root:password@db:3306/alx_travel
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    networks:
+      - alx-network
+
+  celery-beat:
+    build: .
+    container_name: celery-beat
+    command: celery -A alx_travel_app beat --loglevel=info
+    environment:
+      - DJANGO_SETTINGS_MODULE=alx_travel_app.settings.local
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - DATABASE_URL=mysql://root:password@db:3306/alx_travel
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    networks:
+      - alx-network
+
+volumes:
+  mysql_data:
+  redis_data:
+  static_volume:
+  media_volume:
+
+networks:
+  alx-network:
+    driver: bridge
