@@ -1,0 +1,174 @@
+name: Django CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  # Optional: Schedule for daily runs
+  schedule:
+    - cron: '0 0 * * *'  # Runs at midnight UTC daily
+
+jobs:
+  test:
+    name: Test Django Application
+    runs-on: ubuntu-latest
+    
+    services:
+      # Setup MySQL database for testing
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: test_db
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
+    env:
+      # Django settings
+      DJANGO_SETTINGS_MODULE: alx_travel_app.settings.test
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      DEBUG: "False"
+      
+      # Database configuration for MySQL
+      DATABASE_NAME: test_db
+      DATABASE_USER: test_user
+      DATABASE_PASSWORD: test_password
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 3306
+      
+      # Payment integration (Chapa)
+      CHAPA_SECRET_KEY: ${{ secrets.CHAPA_SECRET_KEY }}
+      CHAPA_PUBLIC_KEY: ${{ secrets.CHAPA_PUBLIC_KEY }}
+    
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
+        django-version: ['4.2', '5.0']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libmysqlclient-dev \
+          build-essential \
+          default-libmysqlclient-dev \
+          pkg-config
+    
+    - name: Wait for MySQL to be ready
+      run: |
+        echo "Waiting for MySQL..."
+        for i in {1..30}; do
+          if mysqladmin ping -h"127.0.0.1" -P"3306" -u"test_user" -p"test_password" --silent; then
+            echo "MySQL is ready!"
+            break
+          fi
+          echo "Waiting for MySQL... Attempt $i"
+          sleep 2
+        done
+    
+    - name: Create test database
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u test_user -ptest_password -e "CREATE DATABASE IF NOT EXISTS test_db;"
+        mysql -h 127.0.0.1 -P 3306 -u test_user -ptest_password -e "SHOW DATABASES;"
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install "Django==${{ matrix.django-version }}"
+        pip install -r requirements.txt
+        pip install pytest pytest-django pytest-cov pytest-html \
+                   mysqlclient coverage factory-boy Faker \
+                   flake8 black isort
+        
+        # For payment testing
+        pip install chapa
+    
+    - name: Run database migrations
+      run: |
+        python manage.py makemigrations --check --dry-run
+        python manage.py migrate
+      
+    - name: Run linting and code quality checks
+      run: |
+        echo "=== Running Flake8 ==="
+        flake8 alx_travel_app/ --max-line-length=120 --exclude=migrations || true
+        
+        echo "=== Running Black Check ==="
+        black --check alx_travel_app/ || true
+        
+        echo "=== Running Import Sorting ==="
+        isort --check-only alx_travel_app/ || true
+    
+    - name: Run Django tests with coverage
+      run: |
+        # Create test reports directory
+        mkdir -p test-reports
+        
+        # Run tests with coverage
+        python -m pytest \
+          alx_travel_app/ \
+          tests/ \
+          -v \
+          --tb=short \
+          --disable-warnings \
+          --cov=alx_travel_app \
+          --cov-report=html:coverage-reports \
+          --cov-report=xml:coverage-reports/coverage.xml \
+          --cov-report=term \
+          --junitxml=test-reports/junit.xml
+        
+        # Generate coverage badge
+        python -c "
+        import xml.etree.ElementTree as ET
+        tree = ET.parse('coverage-reports/coverage.xml')
+        root = tree.getroot()
+        coverage = float(root.attrib['line-rate']) * 100
+        with open('coverage.txt', 'w') as f:
+            f.write(f'{coverage:.1f}%')
+        "
+      
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports-${{ matrix.python-version }}-${{ matrix.django-version }}
+        path: |
+          test-reports/
+          coverage-reports/
+          coverage.txt
+        retention-days: 7
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage-reports/coverage.xml
+        fail_ci_if_error: false
+      
+    - name: Test summary
+      if: always()
+      run: |
+        echo "=== Test Summary ==="
+        echo "Python: ${{ matrix.python-version }}"
+        echo "Django: ${{ matrix.django-version }}"
+        
+        if [ -f coverage.txt ]; then
+          echo "Coverage: $(cat coverage.txt)"
+        fi
