@@ -1,0 +1,41 @@
+[flake8]
+# Maximum line length
+max-line-length = 120
+
+# Maximum complexity allowed
+max-complexity = 15
+
+# Ignore these errors
+ignore = 
+    E203,  # Whitespace before ':'
+    W503,  # Line break before binary operator
+    E501,  # Line too long (handled by black)
+    C901,  # Too complex
+
+# Exclude directories and files
+exclude = 
+    .git,
+    __pycache__,
+    migrations,
+    settings/production.py,
+    venv,
+    .venv,
+    env,
+    .env,
+    *.sqlite3,
+    *.log,
+    node_modules,
+    build,
+    dist,
+    *.min.js,
+    *.min.css
+
+# Include Django specific checks
+per-file-ignores = 
+    */migrations/*:E501
+
+# Output format
+format = default
+show-source = True
+statistics = True
+count = True

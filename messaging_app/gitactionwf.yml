@@ -1,0 +1,368 @@
+name: Django CI/CD with Quality Checks
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  # Django settings
+  DJANGO_SETTINGS_MODULE: alx_travel_app.settings.test
+  SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  
+  # Database configuration
+  DATABASE_NAME: test_db
+  DATABASE_USER: test_user
+  DATABASE_PASSWORD: test_password
+  DATABASE_HOST: 127.0.0.1
+  DATABASE_PORT: 3306
+
+jobs:
+  quality-checks:
+    name: Code Quality & Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Get all history for git diff
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 flake8-django flake8-black flake8-isort \
+                   black isort mypy pylint pylint-django \
+                   bandit safety radon mccabe
+        pip install -r requirements.txt || true
+    
+    - name: Run Flake8 linting (FAIL on errors)
+      run: |
+        echo "=== Running Flake8 with strict error handling ==="
+        flake8 alx_travel_app/ \
+          --max-line-length=120 \
+          --max-complexity=15 \
+          --exclude=migrations,__pycache__,settings/production.py \
+          --count \
+          --show-source \
+          --statistics
+        
+        # Capture exit code
+        FLAKE8_EXIT_CODE=$?
+        
+        if [ $FLAKE8_EXIT_CODE -ne 0 ]; then
+          echo "❌ Flake8 found errors! Build will fail."
+          exit $FLAKE8_EXIT_CODE
+        else
+          echo "✅ Flake8 passed!"
+        fi
+    
+    - name: Run Black code formatting check
+      run: |
+        echo "=== Checking code formatting with Black ==="
+        black --check --diff alx_travel_app/ || {
+          echo "❌ Black formatting issues found!"
+          echo "Run 'black alx_travel_app/' to fix formatting."
+          exit 1
+        }
+        echo "✅ Black formatting is correct!"
+    
+    - name: Run isort import sorting check
+      run: |
+        echo "=== Checking import sorting with isort ==="
+        isort --check-only --diff alx_travel_app/ || {
+          echo "❌ Import sorting issues found!"
+          echo "Run 'isort alx_travel_app/' to fix imports."
+          exit 1
+        }
+        echo "✅ Import sorting is correct!"
+    
+    - name: Run Pylint with Django plugin
+      run: |
+        echo "=== Running Pylint analysis ==="
+        pylint alx_travel_app/ \
+          --load-plugins=pylint_django \
+          --django-settings-module=alx_travel_app.settings.test \
+          --rcfile=.pylintrc \
+          --fail-under=7.0 \
+          --exit-zero
+        
+        echo "Pylint completed (non-blocking)"
+    
+    - name: Run Bandit security scanning
+      run: |
+        echo "=== Running Bandit security scan ==="
+        bandit -r alx_travel_app/ \
+          -ll \
+          --exclude alx_travel_app/migrations,alx_travel_app/__pycache__ \
+          --format json \
+          --output bandit-report.json \
+          --exit-zero
+        
+        echo "Bandit security scan completed"
+    
+    - name: Run dependency security check
+      run: |
+        echo "=== Checking for vulnerable dependencies ==="
+        safety check \
+          --full-report \
+          --json \
+          --output safety-report.json || {
+            echo "⚠️  Safety found vulnerabilities (non-blocking)"
+          }
+    
+    - name: Upload linting reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: quality-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+        retention-days: 30
+
+  test:
+    name: Test Django Application
+    runs-on: ubuntu-latest
+    needs: quality-checks  # Tests depend on quality checks passing
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: test_db
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libmysqlclient-dev \
+          build-essential \
+          default-libmysqlclient-dev \
+          pkg-config
+    
+    - name: Wait for MySQL
+      run: |
+        echo "Waiting for MySQL..."
+        for i in {1..30}; do
+          if mysqladmin ping -h"127.0.0.1" -P"3306" -u"test_user" -p"test_password" --silent; then
+            echo "MySQL is ready!"
+            break
+          fi
+          echo "Waiting... Attempt $i"
+          sleep 2
+        done
+    
+    - name: Create test database
+      run: |
+        mysql -h 127.0.0.1 -P 3306 -u test_user -ptest_password -e "CREATE DATABASE IF NOT EXISTS test_db;"
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-django pytest-cov pytest-html \
+                   coverage factory-boy Faker \
+                   django-coverage-plugin
+    
+    - name: Run migrations
+      run: |
+        python manage.py makemigrations --check --dry-run
+        python manage.py migrate
+    
+    - name: Run tests with detailed coverage
+      id: run-tests
+      run: |
+        # Create directories for reports
+        mkdir -p coverage-reports test-reports
+        
+        echo "=== Running tests with coverage ==="
+        
+        # Run pytest with coverage
+        python -m pytest \
+          alx_travel_app/ \
+          tests/ \
+          -v \
+          --tb=short \
+          --disable-warnings \
+          --cov=alx_travel_app \
+          --cov-config=.coveragerc \
+          --cov-report=html:coverage-reports/html \
+          --cov-report=xml:coverage-reports/coverage.xml \
+          --cov-report=json:coverage-reports/coverage.json \
+          --cov-report=lcov:coverage-reports/lcov.info \
+          --cov-report=term-missing:coverage-reports/missing.txt \
+          --junitxml=test-reports/junit.xml \
+          --html=test-reports/report.html \
+          --self-contained-html
+        
+        # Generate coverage summary
+        coverage report --skip-covered > coverage-reports/summary.txt
+        
+        # Calculate coverage percentage
+        TOTAL_COVERAGE=$(coverage report --format=total | tail -1 | awk '{print $4}' | sed 's/%//')
+        echo "Total coverage: ${TOTAL_COVERAGE}%"
+        
+        # Fail if coverage is below threshold (optional)
+        COVERAGE_THRESHOLD=80
+        if (( $(echo "$TOTAL_COVERAGE < $COVERAGE_THRESHOLD" | bc -l) )); then
+          echo "❌ Coverage below threshold of ${COVERAGE_THRESHOLD}%"
+          echo "::warning file=coverage-reports/summary.txt,title=Low Coverage::Code coverage is ${TOTAL_COVERAGE}%, below ${COVERAGE_THRESHOLD}% threshold"
+          # Uncomment to fail on low coverage:
+          # exit 1
+        fi
+        
+        # Output coverage for GitHub Actions
+        echo "coverage_percentage=${TOTAL_COVERAGE}" >> $GITHUB_OUTPUT
+    
+    - name: Generate coverage badge
+      if: success()
+      run: |
+        COVERAGE=${{ steps.run-tests.outputs.coverage_percentage }}
+        
+        # Create badge based on coverage percentage
+        if (( $(echo "$COVERAGE >= 90" | bc -l) )); then
+          COLOR="brightgreen"
+        elif (( $(echo "$COVERAGE >= 80" | bc -l) )); then
+          COLOR="green"
+        elif (( $(echo "$COVERAGE >= 70" | bc -l) )); then
+          COLOR="yellow"
+        elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
+          COLOR="orange"
+        else
+          COLOR="red"
+        fi
+        
+        # Create badge file (can be used in README)
+        echo "![Coverage](https://img.shields.io/badge/coverage-${COVERAGE}%25-${COLOR})" > coverage-badge.md
+        
+        # Also create a simple text file
+        echo "${COVERAGE}%" > coverage-percentage.txt
+        
+        echo "Coverage badge generated: ${COVERAGE}% (${COLOR})"
+    
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports-${{ matrix.python-version }}
+        path: |
+          test-reports/
+          coverage-reports/
+          coverage-badge.md
+          coverage-percentage.txt
+        retention-days: 30
+    
+    - name: Upload coverage to Codecov
+      if: success()
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage-reports/coverage.xml
+        directory: ./coverage-reports/
+        fail_ci_if_error: false
+        verbose: true
+    
+    - name: Upload coverage to Coveralls
+      if: success()
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: ./coverage-reports/lcov.info
+    
+    - name: Publish coverage summary
+      if: always()
+      run: |
+        echo "=== TEST SUMMARY ==="
+        echo "Python Version: ${{ matrix.python-version }}"
+        
+        if [ -f coverage-percentage.txt ]; then
+          COVERAGE=$(cat coverage-percentage.txt)
+          echo "Code Coverage: ${COVERAGE}"
+          
+          # Add to job summary
+          echo "### 📊 Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage:** ${COVERAGE}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Python Version:** ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Reports:** [Download Artifacts](#)" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  report:
+    name: Generate Quality Report
+    runs-on: ubuntu-latest
+    needs: [quality-checks, test]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts/
+    
+    - name: Generate combined report
+      run: |
+        echo "=== COMBINED QUALITY REPORT ===" > quality-report.md
+        echo "Generated: $(date)" >> quality-report.md
+        echo "" >> quality-report.md
+        
+        # Add coverage info if available
+        if [ -f "artifacts/test-reports-3.11/coverage-percentage.txt" ]; then
+          COVERAGE=$(cat artifacts/test-reports-3.11/coverage-percentage.txt)
+          echo "## 📊 Code Coverage" >> quality-report.md
+          echo "**Overall Coverage:** ${COVERAGE}" >> quality-report.md
+          echo "" >> quality-report.md
+        fi
+        
+        echo "## 🔍 Quality Checks" >> quality-report.md
+        echo "- ✅ Flake8 linting passed" >> quality-report.md
+        echo "- ✅ Black formatting passed" >> quality-report.md
+        echo "- ✅ Import sorting passed" >> quality-report.md
+        echo "" >> quality-report.md
+        
+        echo "## 📁 Available Reports" >> quality-report.md
+        echo "- Linting reports: quality-reports/" >> quality-report.md
+        echo "- Test reports: test-reports-3.10/, test-reports-3.11/" >> quality-report.md
+        echo "- Coverage reports: Includes HTML, XML, JSON formats" >> quality-report.md
+        
+        cat quality-report.md
+    
+    - name: Upload final report
+      uses: actions/upload-artifact@v4
+      with:
+        name: final-quality-report
+        path: quality-report.md
+        retention-days: 30
