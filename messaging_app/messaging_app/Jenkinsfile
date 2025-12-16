@@ -1,12 +1,192 @@
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
-// this is new jenkinsfile
+
 // this is new jenkinsfile in inner app
+pipeline {
+    agent any
+    
+    environment {
+        // Define environment variables
+        PROJECT_NAME = 'alx-backend-python'
+        PYTHON_VERSION = '3.10'
+        DOCKER_IMAGE = 'python:3.10-slim'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout code from GitHub
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    extensions: [],
+                    userRemoteConfigs: [[
+                        credentialsId: 'github-ssh-key',  // Your credential ID
+                        url: 'git@github.com:yourusername/alx_travel_app.git'
+                    ]]
+                ])
+                
+                // Display repository info
+                sh 'git branch -a'
+                sh 'git log --oneline -5'
+            }
+        }
+        
+        stage('Setup Environment') {
+            steps {
+                script {
+                    // Create virtual environment
+                    sh '''
+                        python -m venv venv
+                        . venv/bin/activate
+                        python --version
+                        pip install --upgrade pip
+                    '''
+                }
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                script {
+                    sh '''
+                        . venv/bin/activate
+                        pip install -r requirements.txt
+                        # Install pytest and reporting tools
+                        pip install pytest pytest-html pytest-cov
+                    '''
+                }
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                script {
+                    sh '''
+                        . venv/bin/activate
+                        # Run tests with coverage and generate HTML report
+                        python -m pytest tests/ \
+                            -v \
+                            --html=test-reports/report.html \
+                            --self-contained-html \
+                            --cov=alx_travel_app \
+                            --cov-report=html:coverage-reports \
+                            --cov-report=xml:coverage-reports/coverage.xml \
+                            --junitxml=test-reports/junit.xml
+                    '''
+                }
+            }
+            
+            post {
+                always {
+                    // Archive test results
+                    junit 'test-reports/junit.xml'
+                    
+                    // Publish HTML reports
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'test-reports',
+                        reportFiles: 'report.html',
+                        reportName: 'Pytest Report'
+                    ])
+                    
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'coverage-reports',
+                        reportFiles: 'index.html',
+                        reportName: 'Coverage Report'
+                    ])
+                }
+            }
+        }
+        
+        stage('Code Quality Check') {
+            steps {
+                script {
+                    sh '''
+                        . venv/bin/activate
+                        # Install linting tools
+                        pip install flake8 pylint black
+                        
+                        # Run code quality checks
+                        flake8 alx_travel_app/ --max-line-length=120 || true
+                        pylint alx_travel_app/ --exit-zero || true
+                        black --check alx_travel_app/ || true
+                    '''
+                }
+            }
+        }
+        
+        stage('Build Docker Image') {
+            when {
+                expression { 
+                    return env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master' 
+                }
+            }
+            steps {
+                script {
+                    sh '''
+                        # Build Docker image for the application
+                        docker build -t alx-travel-app:${BUILD_NUMBER} .
+                        docker tag alx-travel-app:${BUILD_NUMBER} alx-travel-app:latest
+                    '''
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Clean up workspace
+            cleanWs()
+            
+            // Send notification
+            emailext (
+                subject: "Pipeline ${currentBuild.result} for ${PROJECT_NAME}",
+                body: """Pipeline ${currentBuild.result}: ${env.JOB_NAME} #${env.BUILD_NUMBER}
+                
+                Check console output at: ${env.BUILD_URL}
+                
+                Test Results: ${env.BUILD_URL}testReport/
+                Coverage Report: ${env.BUILD_URL}Coverage_20Report/
+                Pytest Report: ${env.BUILD_URL}Pytest_20Report/
+                """,
+                to: 'youremail@example.com',
+                recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+            )
+        }
+        
+        success {
+            echo 'Pipeline completed successfully!'
+            // Archive artifacts if needed
+            archiveArtifacts artifacts: '**/coverage-reports/**,**/test-reports/**'
+        }
+        
+        failure {
+            echo 'Pipeline failed!'
+            // Additional failure actions
+        }
+        
+        unstable {
+            echo 'Pipeline is unstable!'
+        }
+    }
+    
+    options {
+        // Pipeline configuration options
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+        retry(2)
+    }
+    
+    triggers {
+        // Configure triggers (polling, webhook, etc.)
+        pollSCM('H/5 * * * *')  // Poll every 5 minutes
+        
+        // Uncomment for GitHub webhook trigger
+        // githubPush()
+    }
+}
