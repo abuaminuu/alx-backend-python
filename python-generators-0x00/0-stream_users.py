@@ -15,7 +15,7 @@ def stream_users():
     # fetch data from user_data table
     cursor.execute("SELECT * FROM user_data")
 
-    # yield one row at a time
+    # yield one row at a time (efficiency)
     for row in cursor:
         yield row
     

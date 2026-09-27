@@ -6,8 +6,8 @@ from .models import Conversation, Message, User
 from .serializers import ConversationSerializer, MessageSerializer
 from rest_framework import viewsets, status, filters  # <-- filters imported
 from rest_framework import viewsets, permissions
-from .permissions import    IsParticipant, IsMessageOwner, IsConversationParticipant, IsParticipantOfConversation
-    
+from .permissions import IsParticipant, IsMessageOwner, IsConversationParticipant, IsParticipantOfConversation
+
 
 # Create your views here.
 
@@ -498,3 +498,4 @@ class ConversationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         return super().handle_exception(exc)
+

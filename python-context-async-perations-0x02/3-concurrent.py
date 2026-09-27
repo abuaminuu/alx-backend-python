@@ -34,3 +34,4 @@ async def fetch_concurrently():
 # start the async event loop and runs your concurrent queries.
 if __name__ == "__main__":
     asyncio.run(fetch_concurrently)
+

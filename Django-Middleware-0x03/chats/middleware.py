@@ -149,7 +149,7 @@ class RateLimitMiddleware:
         """
         current_time = time.time()
         
-        # Initialize if IP not in log
+        # Initialize if IP not in log {}
         if ip not in self.request_log:
             self.request_log[ip] = []
         
@@ -304,7 +304,7 @@ class OffensiveLanguageMiddleware:
             pass
 
 
-class RolepermissionMiddleware:
+class RolePermissionMiddleware:
     """
     Middleware that checks user's role before allowing access to specific actions
     Only admin and moderator roles can access certain endpoints

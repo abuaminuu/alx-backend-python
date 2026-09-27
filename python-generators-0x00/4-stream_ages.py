@@ -43,3 +43,6 @@ def calculate_average():
         average = total_age / count
     
     print("averahe of users: ", average)
+
+
+

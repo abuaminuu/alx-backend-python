@@ -1,4 +1,3 @@
-from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.signals import post_save, pre_save, post_delete

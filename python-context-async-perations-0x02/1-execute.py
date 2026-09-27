@@ -15,7 +15,7 @@ class ExecuteQuery():
         # Create a cursor
         cursor = self.connection.cursor()
         # Execute the query with its parameters (if any)
-        cursor.execute(self.query)        
+        cursor.execute(self.query)
         # Fetch the results
         self.results = cursor.fetchall()
         # Return the results to the with block

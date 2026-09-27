@@ -51,6 +51,7 @@ def memoize(fn):
     """Decorator to cache the output of a method."""
     attr = "_{}".format(fn.__name__)
 
+    # getter for attr if not set
     @property
     def wrapper(self):
         if not hasattr(self, attr):
@@ -58,3 +59,6 @@ def memoize(fn):
         return getattr(self, attr)
 
     return wrapper
+
+
+

@@ -30,6 +30,7 @@ def paginate_users(page_size, offset):
         if connection:
             connection.close()
 
+
 # implements lazy paginate
 def lazy_paginate(page_size):
     offset = 0
@@ -40,3 +41,5 @@ def lazy_paginate(page_size):
         yield page
         # update offset to next page
         offset = offset + page_size
+
+

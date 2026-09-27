@@ -69,12 +69,13 @@ class TestMemoize(unittest.TestCase):
             def a_property(self):
                 """Memoized property that calls a_method."""
                 return self.a_method()
-
-        obj = TestClass()
+        
+        # must be in TestClass scope
+        test_class_object = TestClass()
 
         with patch.object(TestClass, "a_method", return_value=42) as mock_method:
-            first = obj.a_property
-            second = obj.a_property
+            first = test_class_object.a_property
+            second = test_class_object.a_property
 
             self.assertEqual(first, 42)
             self.assertEqual(second, 42)
@@ -83,3 +84,5 @@ class TestMemoize(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

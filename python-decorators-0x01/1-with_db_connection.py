@@ -21,7 +21,7 @@ def with_db_connection(func):
 
 
 # calling decorated function
-@with_db_connection 
+@with_db_connection
 def get_user_by_id(conn, user_id): 
 cursor = conn.cursor() 
 cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,)) 
